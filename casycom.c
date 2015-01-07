@@ -33,7 +33,7 @@ static void casycom_on_fatal_signal (int sig)
     if (false == atomic_exchange (&doubleSignal, true)) {
 	casycom_log (LOG_CRIT, "[S] Error: %s\n", strsignal(sig));
 	#ifndef NDEBUG
-	    PrintBacktrace();
+	    casycom_backtrace();
 	#endif
 	exit (qc_ShellSignalQuitOffset+sig);
     }

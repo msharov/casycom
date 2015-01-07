@@ -65,6 +65,8 @@ endif
 
 ################ Maintenance ###########################################
 
+include test/Module.mk
+
 clean:
 	@if [ -h ${ONAME} ]; then\
 	    rm -f $O.d ${LIBA} ${OBJS} ${DEPS} ${ONAME};\
@@ -83,7 +85,7 @@ ${BUILDDIR}/.d:     Makefile
 
 Config.mk:	Config.mk.in
 config.h:	config.h.in
-${OBJS} ${OBJS}:	Makefile ${CONFS} $O.d ${NAME}/config.h
+${OBJS}:	Makefile ${CONFS} $O.d ${NAME}/config.h
 ${NAME}/config.h:	config.h
 	@rm -f ${NAME}; ln -s . ${NAME}
 ${CONFS}:	configure
