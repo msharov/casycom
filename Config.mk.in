@@ -1,0 +1,41 @@
+################ Build options #######################################
+
+NAME		:= @PKG_NAME@
+MAJOR		:= @PKG_MAJOR@
+MINOR		:= @PKG_MINOR@
+
+#DEBUG		:= 1
+
+################ Programs ############################################
+
+CC		:= @CC@
+LD		:= @CC@
+AR		:= @AR@
+RANLIB		:= @RANLIB@
+INSTALL		:= @INSTALL@
+
+INSTALLEXE	:= ${INSTALL} -D -p -m 700 -s
+INSTALLDATA	:= ${INSTALL} -D -p -m 644
+INSTALLLIB	:= ${INSTALLDATA}
+
+################ Destination #########################################
+
+BINDIR		:= @bindir@
+INCDIR		:= @includedir@
+LIBDIR		:= @libdir@
+MANDIR		:= @mandir@
+
+################ Compiler options ####################################
+
+WARNOPTS	:= -Wall -Wextra -Wredundant-decls -Wshadow @SYSWARNS@
+CFLAGS		:= ${WARNOPTS} -march=native -std=c11 \
+		-ffunction-sections -fdata-sections
+ifdef DEBUG
+    CFLAGS	+= -O0 -ggdb3
+    LDFLAGS	+= -g -rdynamic
+else
+    CFLAGS	+= -Os -g0 -DNDEBUG=1
+    LDFLAGS	+= -s -Wl,-O1,-gc-sections
+endif
+BUILDDIR	:= @builddir@/${NAME}
+O		:= .o/
