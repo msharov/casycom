@@ -3,5 +3,10 @@
 // Copyright (c) 2015 by Mike Sharov <msharov@users.sourceforge.net>
 // This file is free software, distributed under the MIT License.
 
-#pragma once
-#include "casycom/main.h"
+#include "../casycom.h"
+
+int main (void)
+{
+    casycom_framework_init();
+    return casycom_main();
+}

@@ -3,8 +3,7 @@
 // Copyright (c) 2015 by Mike Sharov <msharov@users.sourceforge.net>
 // This file is free software, distributed under the MIT License.
 
-#include "config.h"
-#include "casycom.h"
+#include "main.h"
 #include <signal.h>
 
 //{{{ Module globals ---------------------------------------------------
