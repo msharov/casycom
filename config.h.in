@@ -22,6 +22,8 @@
 #define _GNU_SOURCE
 
 // Common includes
+#include <assert.h>
+#include <stdalign.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
