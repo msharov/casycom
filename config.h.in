@@ -18,6 +18,19 @@
 // Define to 1 if you have execinfo.h
 #undef HAVE_EXECINFO_H
 
+// Using GNU-specific glibc features
+#define _GNU_SOURCE
+
+// Common includes
+#include <stdatomic.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+#include <unistd.h>
+
 // gcc attribute shortcuts
 #define PRINTFARGS(fmt,args)    __attribute__((__format__(__printf__,fmt,args)))
 #define CONST                   __attribute__((const))
@@ -32,15 +45,25 @@
     #define inline		__attribute__((always_inline)) inline
 #endif
 
-// Using GNU-specific glibc features
-#define _GNU_SOURCE
+// Utility functions
+#ifdef __cplusplus
+extern "C" {
+    #define _Alignas(grain)	alignas(grain)
+    #define _Noreturn		__attribute__((noreturn))
+    template <typename T, size_t N> constexpr inline size_t ArraySize (T(&a)[N]) { return N; }
+#else
+    #define noexcept		__attribute__((nothrow))
+    #define constexpr		CONST
+    #define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
+#endif
 
-// Common includes
-#include <stdatomic.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <unistd.h>
+#ifndef NDEBUG
+void	casycom_log (int type, const char* fmt, ...) PRINTFARGS(2,3);
+void	casycom_backtrace (void);
+#else
+#define casycom_log(type,fmt,...)	syslog(type,fmt,__VA_ARGS__)
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

@@ -6,11 +6,6 @@
 #include "config.h"
 #include "casycom.h"
 #include <signal.h>
-#include <stdarg.h>
-#include <stdatomic.h>
-#if HAVE_EXECINFO_H
-    #include <execinfo.h>
-#endif
 
 //{{{ Module globals ---------------------------------------------------
 
@@ -22,38 +17,6 @@ static int _casycom_ExitCode = EXIT_SUCCESS;
 static bool _casycom_Quitting = false;
 
 //}}}-------------------------------------------------------------------
-//{{{ Debugging
-#ifndef NDEBUG
-
-void LogMessage (int type, const char* fmt, ...)
-{
-    va_list args;
-    va_start (args, fmt);
-    if (isatty (STDOUT_FILENO))
-	vprintf (fmt, args);
-    else
-	vsyslog (type, fmt, args);
-    va_end (args);
-}
-
-void PrintBacktrace (void)
-{
-#if HAVE_EXECINFO_H
-    void* frames [64];
-    int nFrames = backtrace (frames, ArraySize(frames));
-    if (nFrames <= 1)
-	return;	// Can happen if there is no debugging information
-    char** syms = backtrace_symbols (frames, nFrames);
-    if (!syms)
-	return;
-    for (int i = 1; i < nFrames; ++i)
-	LogMessage (LOG_ERR, "\t%s\n", syms[i]);
-    free (syms);
-#endif
-}
-
-#endif
-//}}}-------------------------------------------------------------------
 //{{{ Signal handling
 
 #define S(s) (1<<(s))
@@ -63,12 +26,12 @@ enum {
     sigset_Msg	= sigset_Quit|S(SIGHUP)|S(SIGCHLD)|S(SIGWINCH)|S(SIGURG)|S(SIGXFSZ)|S(SIGUSR1)|S(SIGUSR2)|S(SIGPIPE)
 };
 
-static void OnFatalSignal (int sig)
+static void casycom_on_fatal_signal (int sig)
 {
     enum { qc_ShellSignalQuitOffset = 128 };
     static volatile _Atomic(bool) doubleSignal = false;
     if (false == atomic_exchange (&doubleSignal, true)) {
-	LogMessage (LOG_CRIT, "[S] Error: %s\n", strsignal(sig));
+	casycom_log (LOG_CRIT, "[S] Error: %s\n", strsignal(sig));
 	#ifndef NDEBUG
 	    PrintBacktrace();
 	#endif
@@ -77,19 +40,19 @@ static void OnFatalSignal (int sig)
     _Exit (qc_ShellSignalQuitOffset+sig);
 }
 
-static void OnMsgSignal (int sig)
+static void casycom_on_msg_signal (int sig)
 {
     _casycom_LastSignal = sig;
     alarm (1);	// Reset in main loop after clearing _casycom_LastSignal. Ensures that hangs can be broken.
 }
 
-static void InstallCleanupHandlers (void)
+static void casycom_install_signal_handlers (void)
 {
     for (unsigned sig = 0; sig < sizeof(int)*8; ++sig) {
 	if (sigset_Msg & S(sig))
-	    signal (sig, OnMsgSignal);
+	    signal (sig, casycom_on_msg_signal);
 	else if (sigset_Die & S(sig))
-	    signal (sig, OnFatalSignal);
+	    signal (sig, casycom_on_fatal_signal);
     }
 }
 #undef S
@@ -105,7 +68,7 @@ void casycom_init (void)
 /// Replaces casycom_init if casycom is the top-level framework in your process
 void casycom_framework_init (void)
 {
-    InstallCleanupHandlers();
+    casycom_install_signal_handlers();
     casycom_init();
 }
 

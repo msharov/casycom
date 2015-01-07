@@ -29,8 +29,6 @@ extern "C" {
 
 //{{{ Utility functions ------------------------------------------------
 
-#define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
-
 //}}}-------------------------------------------------------------------
 // Main API
 
@@ -42,13 +40,6 @@ void	casycom_quit (int exitCode);
 SMsg*	casycom_create_message (void);
 
 //{{{ Debugging functions ----------------------------------------------
-
-#ifndef NDEBUG
-void	LogMessage (int type, const char* fmt, ...) __attribute__((__format__(__printf__,2,3)));
-void	PrintBacktrace (void);
-#else
-#define LogMessage(type,fmt,...)	syslog(type,fmt,__VA_ARGS__)
-#endif
 
 //}}}-------------------------------------------------------------------
 
