@@ -4,21 +4,33 @@
 // This file is free software, distributed under the MIT License.
 
 #pragma once
-#include "config.h"
+#include "stm.h"
 
 //----------------------------------------------------------------------
 
-typedef unsigned short	oid_t;
+typedef uint16_t	oid_t;
 typedef const char*	methodid_t;
-typedef const char*	interfaceid_t;
+
+typedef struct _SInterface {
+    const char*	name;
+    size_t	nMethods;
+    const char*	methods[];
+} SInterface;
+typedef const SInterface*	iid_t;
 
 typedef struct _SMsg {
-    oid_t	_src;
-    oid_t	_dest;
-    unsigned	_size;
-    methodid_t	_method;
-    void*	_body;
+    iid_t	interface;
+    void*	body;
+    uint32_t	imethod;
+    uint32_t	size;
+    oid_t	src;
+    oid_t	dest;
+    oid_t	extid;
+    uint8_t	fdoffset;
+    uint8_t	reserved;
 } SMsg;
+
+enum { NoFdInMessage = UINT8_MAX };
 
 //----------------------------------------------------------------------
 
@@ -26,7 +38,7 @@ typedef struct _SMsg {
 extern "C" {
 #endif
 
-SMsg*	casycom_create_message (void) noexcept;
+SMsg*	casymsg_create (uint32_t sz) noexcept;
 
 #ifdef __cplusplus
 } // extern "C"
