@@ -4,7 +4,7 @@
 // This file is free software, distributed under the MIT License.
 
 #pragma once
-#include "config.h"
+#include "util.h"
 
 typedef struct _RStm {
     const char*	_p;
@@ -78,6 +78,11 @@ CASYSTM_WRITE_POD (bool,	uint8_t)
 static inline void casystm_write_align (WStm* s, size_t grain) {
     while (!casystm_is_write_aligned (s, grain))
 	casystm_write_uint8 (s, 0);
+}
+
+static inline size_t casystm_size_string (const char* v) {
+    size_t sz = sizeof(uint32_t)+strlen(v)+1;
+    return (sz + 3) & ~3;
 }
 
 #ifdef __cplusplus

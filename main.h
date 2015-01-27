@@ -6,6 +6,17 @@
 #pragma once
 #include "msg.h"
 
+typedef struct _SObjectInterface {
+    iid_t	iid;
+    const void*	dtable;
+} SObjectInterface;
+
+typedef struct _SObject {
+    void*		(*Create)(const SMsg* msg);
+    void		(*Destroy)(void* o);
+    SObjectInterface	interface[];
+} SObject;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,6 +25,11 @@ void	casycom_init (void) noexcept;
 void	casycom_framework_init (void) noexcept;
 int	casycom_main (void) noexcept;
 void	casycom_quit (int exitCode) noexcept;
+
+typedef void* (pfn_object_init)(const SMsg* msg);
+
+void	casycom_register (const SObject* o) noexcept;
+PProxy	casycom_create_proxy (iid_t iid, oid_t src) noexcept;
 
 #ifdef __cplusplus
 } // extern "C"

@@ -46,26 +46,10 @@
 #ifdef NDEBUG
     #define inline		__attribute__((always_inline)) inline
 #endif
-
-// Utility functions
 #ifdef __cplusplus
-extern "C" {
     #define _Alignas(grain)	alignas(grain)
     #define _Noreturn		__attribute__((noreturn))
-    template <typename T, size_t N> constexpr inline size_t ArraySize (T(&a)[N]) { return N; }
 #else
     #define noexcept		__attribute__((nothrow))
     #define constexpr		CONST
-    #define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
-#endif
-
-#ifndef NDEBUG
-void	casycom_log (int type, const char* fmt, ...) PRINTFARGS(2,3);
-void	casycom_backtrace (void);
-#else
-#define casycom_log(type,fmt,...)	syslog(type,fmt,__VA_ARGS__)
-#endif
-
-#ifdef __cplusplus
-} // extern "C"
 #endif
