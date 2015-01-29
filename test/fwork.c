@@ -51,9 +51,16 @@ typedef struct _SPingObject {
     unsigned	nPings;
 } SPingObject;
 
-static void* PingObject_Create (const SMsg* msg UNUSED)
+static void* PingObject_Create (const SMsg* msg)
 {
+    printf ("Created PingObject %u\n", msg->dest);
     return xalloc (sizeof(SPingObject));
+}
+
+static void PingObject_Destroy (void* o)
+{
+    printf ("Destroy PingObject\n");
+    xfree (o);
 }
 
 static void PingObject_Ping_Ping (SPingObject* o, uint32_t u)
@@ -67,6 +74,7 @@ static const DPing s_DPingObject = {
 
 static const SObject o_PingObject = {
     .Create = PingObject_Create,
+    .Destroy = PingObject_Destroy,
     .interface = {
 	{ &i_Ping, &s_DPingObject },
 	{ NULL, NULL }

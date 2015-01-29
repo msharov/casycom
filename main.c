@@ -5,6 +5,7 @@
 
 #include "main.h"
 #include <signal.h>
+#include <stdarg.h>
 
 //{{{ Module globals ---------------------------------------------------
 
@@ -14,6 +15,8 @@ static int _casycom_LastSignal = 0;
 static int _casycom_ExitCode = EXIT_SUCCESS;
 /// Loop status
 static bool _casycom_Quitting = false;
+/// Last error
+static char* _casycom_Error = NULL;
 /// Message queues
 DECLARE_VECTOR_TYPE (SMsgVector, SMsg*);
 static VECTOR (SMsgVector, _casycom_InputQueue);
@@ -22,6 +25,10 @@ static VECTOR (SMsgVector, _casycom_OutputQueue);
 DECLARE_VECTOR_TYPE (SObjectTable, const SObject*);
 static VECTOR (SObjectTable, _casycom_ObjectTable);
 /// Message link map
+typedef enum _OFlags {
+    f_Unused,
+    f_Last
+} OFlags;
 typedef struct _SMsgLink {
     void*		o;
     const SObject*	fn;
@@ -38,8 +45,11 @@ static void casycom_idle (void);
 static const SObject* casycom_find_otable (iid_t iid);
 static const void* casycom_find_dtable (const SObject* o, iid_t iid);
 static const SMsgLink* casycom_create_object (const SMsg* msg, size_t ip);
+static void casycom_destroy_object (SMsgLink* ol);
 static const SMsgLink* casycom_find_destination (const SMsg* msg);
 static void casycom_do_message_queues (void);
+static SMsgLink* casycom_link_for_object (const void* o);
+static SMsgLink* casycom_link_for_oid (oid_t oid);
 
 //}}}-------------------------------------------------------------------
 //{{{ Signal handling
@@ -88,6 +98,19 @@ static void casycom_install_signal_handlers (void)
 /// Initializes the library and the event loop
 void casycom_init (void)
 {
+    atexit (casycom_reset);
+}
+
+/// Cleans up allocated objects
+void casycom_reset (void)
+{
+    for (size_t i = 0; i < _casycom_OMap.size; ++i)
+	casycom_destroy_object (&_casycom_OMap.d[i]);
+    vector_deallocate (&_casycom_OMap);
+    vector_deallocate (&_casycom_OutputQueue);
+    vector_deallocate (&_casycom_InputQueue);
+    vector_deallocate (&_casycom_ObjectTable);
+    xfree (_casycom_Error);
 }
 
 /// Replaces casycom_init if casycom is the top-level framework in your process
@@ -116,12 +139,55 @@ static void casycom_idle (void)
 {
     if (!_casycom_InputQueue.size && !_casycom_OutputQueue.size)
 	casycom_quit (EXIT_SUCCESS);	// No more packets, so quit
+    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
+	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
+	    casycom_destroy_object (&_casycom_OMap.d[i]);
+	    vector_erase (&_casycom_OMap, i);
+	    i = 0;	// casycom_destroy_object may set unused flags
+	}
+    }
 }
 
 PProxy casycom_create_proxy (iid_t iid, oid_t src)
 {
     static oid_t _lastOid = oid_Broadcast;
     return (PProxy) { iid, src, ++_lastOid };
+}
+
+void casycom_error (const char* fmt, ...)
+{
+    va_list args;
+    va_start (args, fmt);
+    char* e = NULL;
+    // If error printing failed, use default error message
+    if (0 > vasprintf (&e, fmt, args))
+	e = strdup ("unknown error");
+    va_end (args);
+    if (!_casycom_Error)	// First error message; move
+	_casycom_Error = e;
+    else {
+	char* ne = NULL;	// Subsequent messages are appended
+	if (0 <= asprintf (&ne, "%s\n\t%s", _casycom_Error, e)) {
+	    xfree (_casycom_Error);
+	    _casycom_Error = ne;
+	    xfree (e);
+	}
+    }
+}
+
+bool casycom_forward_error (oid_t oid, oid_t eoid)
+{
+    assert (_casycom_Error && "you must first set the error with casycom_error");
+    // See if the object can handle the error
+    SMsgLink* ml = casycom_link_for_oid (oid);
+    if (!ml)
+	return false;
+    if (ml->fn->Error && ml->fn->Error (eoid, _casycom_Error))
+	return true;
+    // If not, fail this object and forward to creator
+    if (ml->creator == eoid)
+	return false;	// unless it already failed
+    return casycom_forward_error (ml->creator, oid);
 }
 
 //----------------------------------------------------------------------
@@ -168,6 +234,26 @@ static const SMsgLink* casycom_create_object (const SMsg* msg, size_t ip)
     return e;
 }
 
+static void casycom_destroy_object (SMsgLink* ol)
+{
+    // Notify linked objects of the destruction
+    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
+	SMsgLink* ml = &_casycom_OMap.d[i];
+	if (ml->creator == ol->oid || ml->oid == ol->creator) {
+	    if (ml->creator == ol->oid) // Mark unused all objects created by this one
+		ml->flags |= (1<<f_Unused);
+	    if (ml->fn->ObjectDestroyed)
+		ml->fn->ObjectDestroyed (ol->oid);
+	}
+    }
+    // Call the destructor, if set.
+    if (ol->fn->Destroy) {
+	ol->fn->Destroy (ol->o);
+	ol->o = NULL;
+    } else
+	xfree (ol->o);	// Otherwise just free
+}
+
 //----------------------------------------------------------------------
 // Message queue management
 
@@ -200,6 +286,15 @@ static void casycom_do_message_queues (void)
 	}
 	pfn_interface_dispatch dispatch = (pfn_interface_dispatch) msg->interface->dispatch;
 	dispatch (dtable, ml->o, msg);
+	if (_casycom_Error) {
+	    if (!casycom_forward_error (ml->oid, ml->oid)) {
+		// If nobody can handle the error, print it and quit
+		casycom_log (LOG_ERR, "Error: %s\n", _casycom_Error);
+		casycom_quit (EXIT_FAILURE);
+		break;
+	    }
+	    xfree (_casycom_Error);
+	}
     }
     // Clear input queue
     for (size_t m = 0; m < _casycom_InputQueue.size; ++m)
@@ -207,4 +302,33 @@ static void casycom_do_message_queues (void)
     vector_clear (&_casycom_InputQueue);
     // And make the output queue the input queue for the next round
     vector_swap (&_casycom_InputQueue, &_casycom_OutputQueue);
+}
+
+static SMsgLink* casycom_link_for_oid (oid_t oid)
+{
+    for (size_t dp = 0; dp < _casycom_OMap.size; ++dp)
+	if (_casycom_OMap.d[dp].oid == oid)
+	    return &_casycom_OMap.d[dp];
+    return NULL;
+}
+
+static SMsgLink* casycom_link_for_object (const void* o)
+{
+    for (size_t dp = 0; dp < _casycom_OMap.size; ++dp)
+	if (_casycom_OMap.d[dp].o == o)
+	    return &_casycom_OMap.d[dp];
+    return NULL;
+}
+
+void casycom_mark_unused (const void* o)
+{
+    SMsgLink* ml = casycom_link_for_object (o);
+    if (ml)
+	ml->flags |= (1<<f_Unused);
+}
+
+oid_t casycom_oid_of_object (const void* o)
+{
+    SMsgLink* ml = casycom_link_for_object (o);
+    return ml ? ml->oid : oid_Broadcast;
 }
