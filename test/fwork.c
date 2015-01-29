@@ -34,7 +34,7 @@ static void Ping_Dispatch (const DPing* dtable, void* o, const SMsg* msg)
 	RStm is = casymsg_read (msg);
 	uint32_t v = casystm_read_uint32 (&is);
 	MDCALL (Ping_Ping, v);
-    } else
+    } else if (msg->imethod != method_CreateObject)
 	assert (!"Invalid method index in message");
 }
 

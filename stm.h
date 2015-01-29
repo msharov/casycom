@@ -23,6 +23,8 @@ namespace {
 
 static inline void casystm_read_skip (RStm* s, size_t sz)
     { assert (s->_p + sz <= s->_end); s->_p += sz; }
+static inline void casystm_read_skip_to_end (RStm* s)
+    { s->_p = s->_end; }
 static inline void casystm_read_data (RStm* s, void* buf, size_t sz)
     { const void* p = s->_p; casystm_read_skip (s, sz); memcpy (buf, p, sz); }
 static inline bool casystm_is_read_aligned (const RStm* s, size_t grain)
@@ -30,6 +32,8 @@ static inline bool casystm_is_read_aligned (const RStm* s, size_t grain)
 
 static inline void casystm_write_skip (WStm* s, size_t sz)
     { assert (s->_p + sz <= s->_end); s->_p += sz; }
+static inline void casystm_write_skip_to_end (WStm* s)
+    { s->_p = s->_end; }
 static inline void casystm_write_data (WStm* s, const void* buf, size_t sz)
     { void* p = s->_p; casystm_write_skip (s, sz); memcpy (p, buf, sz); }
 static inline bool casystm_is_write_aligned (const WStm* s, size_t grain)

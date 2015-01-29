@@ -31,12 +31,12 @@ void	casycom_quit (int exitCode) noexcept;
 
 typedef void* (pfn_object_init)(const SMsg* msg);
 
-void	casycom_register (const SObject* o) noexcept;
+void	casycom_register (const SObject* o) noexcept NONNULL();
 PProxy	casycom_create_proxy (iid_t iid, oid_t src) noexcept;
-void	casycom_error (const char* fmt, ...) noexcept;
+void	casycom_error (const char* fmt, ...) noexcept PRINTFARGS(1,2);
 bool	casycom_forward_error (oid_t oid, oid_t eoid) noexcept;
-void	casycom_mark_unused (const void* o) noexcept;
-oid_t	casycom_oid_of_object (const void* o) noexcept;
+void	casycom_mark_unused (const void* o) noexcept NONNULL();
+oid_t	casycom_oid_of_object (const void* o) noexcept NONNULL();
 
 #ifdef __cplusplus
 } // extern "C"

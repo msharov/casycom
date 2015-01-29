@@ -150,8 +150,18 @@ static void casycom_idle (void)
 
 PProxy casycom_create_proxy (iid_t iid, oid_t src)
 {
-    static oid_t _lastOid = oid_Broadcast;
-    return (PProxy) { iid, src, ++_lastOid };
+    // Find first unused oid value
+    // OMap is sorted, so increment nid until a number gap is found
+    oid_t nid = oid_First;
+    if (_casycom_OMap.size)
+	nid = _casycom_OMap.d[0].oid;
+    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
+	if (nid < _casycom_OMap.d[i].oid)
+	    break;
+	if (nid == _casycom_OMap.d[i].oid)
+	    ++nid;
+    }
+    return (PProxy) { iid, src, nid };
 }
 
 void casycom_error (const char* fmt, ...)
@@ -220,6 +230,8 @@ static const SObject* casycom_find_otable (iid_t iid)
 static const SMsgLink* casycom_create_object (const SMsg* msg, size_t ip)
 {
     SMsgLink* e = (SMsgLink*) vector_insert_empty (&_casycom_OMap, ip);
+    e->oid = msg->dest;
+    e->creator = msg->src;
     // Create using the otable
     e->fn = casycom_find_otable (msg->interface);
     if (!e->fn) {
@@ -228,9 +240,6 @@ static const SMsgLink* casycom_create_object (const SMsg* msg, size_t ip)
     }
     e->o = e->fn->Create (msg);
     assert (e->o && "Object Create method must return a valid object or die");
-    e->oid = msg->dest;
-    e->creator = msg->src;
-    e->flags = 0;
     return e;
 }
 

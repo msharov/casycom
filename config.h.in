@@ -40,6 +40,7 @@
 #define UNUSED                  __attribute__((unused))
 #define MALLOCLIKE              __attribute__((malloc))
 #define FORMATARG(fmt)          __attribute__((format_arg(fmt)))
+#define NONNULL(...)            __attribute__((nonnull(__VA_ARGS__)))
 #define likely(x)               __builtin_expect(!!(x), 1)
 #define unlikely(x)             __builtin_expect(!!(x), 0)
 #define compile_constant(x)     __builtin_constant_p(x)

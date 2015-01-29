@@ -39,9 +39,12 @@ typedef struct _vector {
     const size_t	elsize;
 } vector;
 
+// Declares a vector for the given type.
+// Use the VECTOR macro to instantiate it. Fields are marked const to
+// ensure only the vector_ functions modify it.
 #define DECLARE_VECTOR_TYPE(name,type)	\
 typedef struct _##name {		\
-    type*		d;		\
+    type* const		d;		\
     const size_t	size;		\
     const size_t	allocated;	\
     const size_t	elsize;		\
@@ -51,10 +54,10 @@ typedef struct _##name {		\
 
 void	vector_reserve (void* v, size_t sz) noexcept;
 void	vector_deallocate (void* v) noexcept;
-void	vector_insert (void* v, size_t ip, const void* e) noexcept;
+void	vector_insert (void* v, size_t ip, const void* e) noexcept NONNULL();
 void*	vector_insert_empty (void* v, size_t ip) noexcept;
 void	vector_erase_n (void* v, size_t ep, size_t n) noexcept;
-void	vector_swap (void* v1, void* v2) noexcept;
+void	vector_swap (void* v1, void* v2) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {
@@ -70,6 +73,14 @@ static inline void vector_pop_back (void* v)
     { vector_erase (v, ((vector*)v)->size-1); }
 static inline void vector_clear (void* v)
     { vector_erase_n (v, 0, ((vector*)v)->size); }
+static inline void vector_detach (void* vv)
+    { vector* v = (vector*) vv; v->d = NULL; v->size = v->allocated = 0; }
+static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
+    vector* v = (vector*) vv;
+    assert (!v->d && "This vector is already attached to something. Detach or deallocate first.");
+    assert (e && "Attaching requires a non-null pointer");
+    v->d = e; v->size = v->allocated = n;
+}
 
 #ifdef __cplusplus
 } // namespace

@@ -10,7 +10,7 @@
 
 typedef uint16_t	oid_t;
 
-enum { oid_Broadcast };
+enum { oid_Broadcast, oid_App, oid_First };
 
 typedef const char*	methodid_t;
 
@@ -34,7 +34,10 @@ typedef struct _SMsg {
     uint8_t	reserved;
 } SMsg;
 
-enum { NoFdInMessage = UINT8_MAX };
+enum {
+    NoFdInMessage = UINT8_MAX,
+    method_CreateObject = UINT32_MAX
+};
 
 typedef struct _PProxy {
     iid_t	interface;
@@ -68,6 +71,8 @@ static inline RStm casymsg_read (const SMsg* msg)
 
 WStm	casymsg_begin (const PProxy* pp, uint32_t imethod, uint32_t sz) noexcept;
 void	casymsg_end (const WStm* stm) noexcept;
+void	casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body) noexcept NONNULL();
+void	casymsg_forward (const PProxy* pp, SMsg* msg) noexcept NONNULL();
 
 uint32_t casyiface_count_methods (iid_t iid) noexcept;
 
