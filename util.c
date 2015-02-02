@@ -13,7 +13,9 @@
 
 void* xalloc (size_t sz)
 {
-    return xrealloc (NULL, sz);
+    void* p = xrealloc (NULL, sz);
+    memset (p, 0, sz);
+    return p;
 }
 
 void* xrealloc (void* p, size_t sz)

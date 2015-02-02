@@ -24,9 +24,12 @@ WStm casymsg_begin (const PProxy* pp, uint32_t imethod, uint32_t sz)
     _casymsg_Msg->imethod = imethod;
     _casymsg_Msg->src = pp->src;
     _casymsg_Msg->dest = pp->dest;
-    _casymsg_Msg->fdoffset = NoFdInMessage;
-    if (sz)
-	_casymsg_Msg->body = xalloc (sz);
+    _casymsg_Msg->fdoffset = NO_FD_IN_MESSAGE;
+    _casymsg_Msg->body = NULL;
+    if (sz) {
+	size_t asz = Align (sz, MESSAGE_BODY_ALIGNMENT);
+	_casymsg_Msg->body = xalloc (asz);
+    }
     _casymsg_Msg->size = sz;
     return (WStm) {
 	(char*) _casymsg_Msg->body,
@@ -47,6 +50,8 @@ void casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body)
 {
     WStm os = casymsg_begin (pp, imethod, 0);
     vector* vbody = (vector*) body;
+    size_t asz = Align (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
+    vector_reserve (vbody, DivRU(asz,vbody->elsize));
     _casymsg_Msg->body = vbody->d;
     _casymsg_Msg->size = vbody->size * vbody->elsize;
     vector_detach (vbody);

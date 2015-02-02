@@ -13,7 +13,7 @@ const char* casystm_read_string (RStm* s)
     const char* v = s->_p;
     casystm_read_skip (s, vlen);
     casystm_read_align (s, sizeof(vlen));
-    assert (strnlen(v,s->_p-v) == vlen-1 && "Unterminated string in stream");
+    assert (strnlen(v,s->_p-v) == vlen-1 && "unterminated string in stream");
     return v;
 }
 

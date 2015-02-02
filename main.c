@@ -43,7 +43,7 @@ static VECTOR (SOMap, _casycom_OMap);
 
 static void casycom_idle (void);
 static const SObject* casycom_find_otable (iid_t iid);
-static const void* casycom_find_dtable (const SObject* o, iid_t iid);
+static const DTable* casycom_find_dtable (const SObject* o, iid_t iid);
 static const SMsgLink* casycom_create_object (const SMsg* msg, size_t ip);
 static void casycom_destroy_object (SMsgLink* ol);
 static const SMsgLink* casycom_find_destination (const SMsg* msg);
@@ -161,7 +161,7 @@ PProxy casycom_create_proxy (iid_t iid, oid_t src)
 	if (nid == _casycom_OMap.d[i].oid)
 	    ++nid;
     }
-    return (PProxy) { iid, src, nid };
+    return casycom_create_proxy_to (iid, src, nid);
 }
 
 void casycom_error (const char* fmt, ...)
@@ -192,8 +192,10 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
     SMsgLink* ml = casycom_link_for_oid (oid);
     if (!ml)
 	return false;
-    if (ml->fn->Error && ml->fn->Error (eoid, _casycom_Error))
+    if (ml->fn->Error && ml->fn->Error (eoid, _casycom_Error)) {
+	xfree (_casycom_Error);
 	return true;
+    }
     // If not, fail this object and forward to creator
     if (ml->creator == eoid)
 	return false;	// unless it already failed
@@ -205,15 +207,19 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
 
 void casycom_register (const SObject* o)
 {
+    #ifndef NDEBUG
+	assert (o->interface[0] && "an object must implement at least one interface");
+	for (const DTable* const* oi = (const DTable* const*) o->interface; *oi; ++oi)
+	    assert ((*oi)->interface && "each dtable must contain the pointer to the implemented interface");
+    #endif
     vector_push_back (&_casycom_ObjectTable, &o);
 }
 
-static const void* casycom_find_dtable (const SObject* o, iid_t iid)
+static const DTable* casycom_find_dtable (const SObject* o, iid_t iid)
 {
-    assert (o->interface[0].iid && "an object must implement at least one interface");
-    for (const SObjectInterface* oi = o->interface; oi->iid; ++oi)
-	if (oi->iid == iid)
-	    return oi->dtable;
+    for (const DTable* const* oi = (const DTable* const*) o->interface; *oi; ++oi)
+	if ((*oi)->interface == iid)
+	    return *oi;
     return NULL;
 }
 
@@ -288,7 +294,7 @@ static void casycom_do_message_queues (void)
     for (size_t m = 0; m < _casycom_InputQueue.size; ++m) {
 	const SMsg* msg = _casycom_InputQueue.d[m];
 	const SMsgLink* ml = casycom_find_destination (msg);
-	const void* dtable = casycom_find_dtable (ml->fn, msg->interface);
+	const DTable* dtable = casycom_find_dtable (ml->fn, msg->interface);
 	if (!dtable) {
 	    assert (!"Destination object does not support message interface");
 	    continue;
@@ -302,7 +308,6 @@ static void casycom_do_message_queues (void)
 		casycom_quit (EXIT_FAILURE);
 		break;
 	    }
-	    xfree (_casycom_Error);
 	}
     }
     // Clear input queue

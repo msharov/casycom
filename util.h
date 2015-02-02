@@ -15,6 +15,10 @@ extern "C" {
     #define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
 #endif
 
+static inline constexpr size_t Floor (size_t n, size_t grain)	{ return n - n % grain; }
+static inline constexpr size_t Align (size_t n, size_t grain)	{ return Floor (n+grain-1, grain); }
+static inline constexpr size_t DivRU (size_t n1, size_t n2)	{ return (n1 + n2-1) / n2; }
+
 void*	xalloc (size_t sz) noexcept MALLOCLIKE;
 void*	xrealloc (void* p, size_t sz) noexcept MALLOCLIKE;
 #define xfree(p)	do { if (p) { free(p); p = NULL; } } while (false)

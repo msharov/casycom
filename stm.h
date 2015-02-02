@@ -29,6 +29,8 @@ static inline void casystm_read_data (RStm* s, void* buf, size_t sz)
     { const void* p = s->_p; casystm_read_skip (s, sz); memcpy (buf, p, sz); }
 static inline bool casystm_is_read_aligned (const RStm* s, size_t grain)
     { return !(((uintptr_t)s->_p) % grain); }
+static inline void casystm_read_align (RStm* s, size_t grain)
+    { s->_p = (const char*) Align ((uintptr_t) s->_p, grain); }
 
 static inline void casystm_write_skip (WStm* s, size_t sz)
     { assert (s->_p + sz <= s->_end); s->_p += sz; }
@@ -57,10 +59,6 @@ CASYSTM_READ_POD (float,	float)
 CASYSTM_READ_POD (double,	double)
 CASYSTM_READ_POD (bool,		uint8_t)
 
-static inline void casystm_read_align (RStm* s, size_t grain) {
-    casystm_read_skip (s, ~((uintptr_t)s->_p+1)&(grain-1));
-}
-
 #define CASYSTM_WRITE_POD(name,type)\
 static inline void casystm_write_##name (WStm* s, type v) {\
     assert (casystm_is_write_aligned (s, alignof(type)));\
@@ -84,10 +82,8 @@ static inline void casystm_write_align (WStm* s, size_t grain) {
 	casystm_write_uint8 (s, 0);
 }
 
-static inline size_t casystm_size_string (const char* v) {
-    size_t sz = sizeof(uint32_t)+strlen(v)+1;
-    return (sz + 3) & ~3;
-}
+static inline size_t casystm_size_string (const char* v)
+    { return Align (sizeof(uint32_t)+strlen(v)+1, 4); }
 
 #ifdef __cplusplus
 } // namespace

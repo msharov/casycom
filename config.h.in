@@ -32,6 +32,8 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <limits.h>
+#include <errno.h>
 
 // gcc attribute shortcuts
 #define PRINTFARGS(fmt,args)    __attribute__((__format__(__printf__,fmt,args)))

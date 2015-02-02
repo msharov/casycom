@@ -35,7 +35,8 @@ typedef struct _SMsg {
 } SMsg;
 
 enum {
-    NoFdInMessage = UINT8_MAX,
+    NO_FD_IN_MESSAGE = UINT8_MAX,
+    MESSAGE_BODY_ALIGNMENT = 8,
     method_CreateObject = UINT32_MAX
 };
 
@@ -45,7 +46,11 @@ typedef struct _PProxy {
     oid_t	dest;
 } PProxy;
 
-#define MDCALL(name,...)	((MFN_##name)(dtable->name))(o, __VA_ARGS__, msg)
+typedef struct _DTable {
+    const iid_t	interface;
+} DTable;
+
+#define DMETHOD(o,m)	.m = (MFN_##m) o##_##m
 
 typedef void (*pfn_interface_dispatch)(const void* dtable, void* o, const SMsg* msg);
 
@@ -64,6 +69,12 @@ static inline RStm casymsg_read (const SMsg* msg)
 
 #define casymsg_free(msg)	\
     do { if (msg) xfree (msg->body); xfree (msg); } while (false)
+
+static inline void casymsg_default_dispatch (const void* dtable UNUSED, void* o UNUSED, const SMsg* msg)
+{
+    if (msg->imethod != method_CreateObject)
+	assert (!"Invalid method index in message");
+}
 
 #ifdef __cplusplus
 } // namespace
