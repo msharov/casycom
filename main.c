@@ -3,7 +3,7 @@
 // Copyright (c) 2015 by Mike Sharov <msharov@users.sourceforge.net>
 // This file is free software, distributed under the MIT License.
 
-#include "main.h"
+#include "timer.h"
 #include <signal.h>
 #include <stdarg.h>
 
@@ -137,8 +137,7 @@ int casycom_main (void)
 
 static void casycom_idle (void)
 {
-    if (!_casycom_InputQueue.size && !_casycom_OutputQueue.size)
-	casycom_quit (EXIT_SUCCESS);	// No more packets, so quit
+    // Destroy objects marked unused
     for (size_t i = 0; i < _casycom_OMap.size; ++i) {
 	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
 	    casycom_destroy_object (&_casycom_OMap.d[i]);
@@ -146,6 +145,14 @@ static void casycom_idle (void)
 	    i = 0;	// casycom_destroy_object may set unused flags
 	}
     }
+    // Process timers and fd waits
+    int timerWait = -1;
+    if (_casycom_InputQueue.size + _casycom_OutputQueue.size)
+	timerWait = 0;	// Do not wait if there are packets in the queue
+    bool haveTimers = Timer_RunTimer (timerWait);
+    // Quit when there are no more packets or timers
+    if (!haveTimers && !(_casycom_InputQueue.size + _casycom_OutputQueue.size))
+	casycom_quit (EXIT_SUCCESS);
 }
 
 PProxy casycom_create_proxy (iid_t iid, oid_t src)

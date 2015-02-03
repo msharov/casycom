@@ -110,8 +110,10 @@ void Timer_Timer_Watch (STimer* o, enum EWatchCmd cmd, int fd, casytimer_t timeo
 
 /// Waits for timer or fd events.
 /// toWait specifies the minimum timeout in milliseconds.
-void Timer_RunTimer (int toWait)
+bool Timer_RunTimer (int toWait)
 {
+    if (!_timer_WatchList.size)
+	return false;
     // Populate the fd list and find the nearest timer
     struct pollfd fds [_timer_WatchList.size];
     size_t nFds = 0;
@@ -149,6 +151,7 @@ void Timer_RunTimer (int toWait)
 	if (bFired)	// Once the timer or the fd fires, it is removed
 	    casycom_mark_unused (we);	// ... in the next idle
     }
+    return _timer_WatchList.size;
 }
 
 /// Returns current time in milliseconds
