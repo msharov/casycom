@@ -65,10 +65,21 @@ void	casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body) noexce
 void	casymsg_forward (const PProxy* pp, SMsg* msg) noexcept NONNULL();
 void	casycom_queue_message (SMsg* msg) noexcept NONNULL(); ///< In main.c
 uint32_t casyiface_count_methods (iid_t iid) noexcept;
+size_t	casymsg_validate_signature (const char* sig, RStm* buf) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {
 #endif
+
+static inline const char* casymsg_method_name (const SMsg* msg) {
+    assert (casyiface_count_methods(msg->interface) > msg->imethod && "invalid method index in message");
+    return msg->interface->method[msg->imethod];
+}
+static inline const char* casymsg_signature (const SMsg* msg) {
+    const char* mname = casymsg_method_name (msg);
+    assert (mname && "invalid method in message");
+    return mname + strlen(mname) + 1;
+}
 
 static inline RStm casymsg_read (const SMsg* msg)
     { return (RStm) { (const char*) msg->body, (const char*) msg->body + msg->size }; }
@@ -76,6 +87,12 @@ static inline WStm casymsg_write (SMsg* msg)
     { return (WStm) { (char*) msg->body, (char*) msg->body + msg->size }; }
 static inline void casymsg_end (SMsg* msg)
     { casycom_queue_message (msg); }
+static inline void casymsg_write_fd (SMsg* msg, WStm* os, int fd) {
+    size_t fdoffset = os->_p - (char*) msg->body;
+    assert (fdoffset < UINT8_MAX && "file descriptors must be passed in the first 252 bytes of the message");
+    msg->fdoffset = fdoffset;
+    casystm_write_int32 (os, fd);
+}
 
 #define casymsg_free(msg)	\
     do { if (msg) xfree (msg->body); xfree (msg); } while (false)

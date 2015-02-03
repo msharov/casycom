@@ -285,6 +285,10 @@ static void casycom_destroy_object (SMsgLink* ol)
 
 void casycom_queue_message (SMsg* msg)
 {
+    #ifndef NDEBUG
+	RStm is = casymsg_read(msg);
+	assert (msg->size == casymsg_validate_signature (casymsg_signature(msg), &is) && "message data does not match method signature");
+    #endif
     acquire_lock (&_casycom_OutputQueueLock);
     vector_push_back (&_casycom_OutputQueue, &msg);
     release_lock (&_casycom_OutputQueueLock);

@@ -21,8 +21,14 @@ extern "C" {
 namespace {
 #endif
 
+static inline size_t casystm_read_available (const RStm* s)
+    { return s->_end - s->_p; }
+static inline bool casystm_can_read (const RStm* s, size_t sz)
+    { return s->_p + sz <= s->_end; }
 static inline void casystm_read_skip (RStm* s, size_t sz)
-    { assert (s->_p + sz <= s->_end); s->_p += sz; }
+    { assert (casystm_can_read(s,sz)); s->_p += sz; }
+static inline void casystm_unread (RStm* s, size_t sz)
+    { s->_p -= sz; }
 static inline void casystm_read_skip_to_end (RStm* s)
     { s->_p = s->_end; }
 static inline void casystm_read_data (RStm* s, void* buf, size_t sz)
@@ -32,8 +38,12 @@ static inline bool casystm_is_read_aligned (const RStm* s, size_t grain)
 static inline void casystm_read_align (RStm* s, size_t grain)
     { s->_p = (const char*) Align ((uintptr_t) s->_p, grain); }
 
+static inline size_t casystm_write_available (const RStm* s)
+    { return s->_end - s->_p; }
+static inline bool casystm_can_write (const WStm* s, size_t sz)
+    { return s->_p + sz <= s->_end; }
 static inline void casystm_write_skip (WStm* s, size_t sz)
-    { assert (s->_p + sz <= s->_end); s->_p += sz; }
+    { assert (casystm_can_write(s,sz)); s->_p += sz; }
 static inline void casystm_write_skip_to_end (WStm* s)
     { s->_p = s->_end; }
 static inline void casystm_write_data (WStm* s, const void* buf, size_t sz)
@@ -43,7 +53,7 @@ static inline bool casystm_is_write_aligned (const WStm* s, size_t grain)
 
 #define CASYSTM_READ_POD(name,type)\
 static inline type casystm_read_##name (RStm* s) {\
-    assert (casystm_is_read_aligned (s, alignof(type)));\
+    assert (casystm_is_read_aligned (s, _Alignof(type)));\
     casystm_read_skip (s, sizeof(type));\
     return ((type*)s->_p)[-1];\
 }
@@ -61,7 +71,7 @@ CASYSTM_READ_POD (bool,		uint8_t)
 
 #define CASYSTM_WRITE_POD(name,type)\
 static inline void casystm_write_##name (WStm* s, type v) {\
-    assert (casystm_is_write_aligned (s, alignof(type)));\
+    assert (casystm_is_write_aligned (s, _Alignof(type)));\
     casystm_write_skip (s, sizeof(type));\
     ((type*)s->_p)[-1] = v;\
 }

@@ -23,7 +23,6 @@
 
 // Common includes
 #include <assert.h>
-#include <stdalign.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -46,7 +45,7 @@
 #define likely(x)               __builtin_expect(!!(x), 1)
 #define unlikely(x)             __builtin_expect(!!(x), 0)
 #define compile_constant(x)     __builtin_constant_p(x)
-#ifdef NDEBUG
+#if defined(NDEBUG) && !defined(inline)
     #define inline		__attribute__((always_inline)) inline
 #endif
 #ifdef __cplusplus
