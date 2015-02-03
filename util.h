@@ -91,7 +91,29 @@ static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
 #endif
 
 //}}}-------------------------------------------------------------------
+//{{{ Miscellaneous
 
 #ifdef __cplusplus
+namespace {
+#endif
+
+// Use in lock wait loops to relax the CPU load
+static inline void tight_loop_pause (void)
+{
+    #if __i386__ || __x86_64__
+	__builtin_ia32_pause();
+    #else
+	usleep (1);
+    #endif
+}
+
+static inline void acquire_lock (bool* l)
+    { do { tight_loop_pause(); } while (atomic_exchange (l, true)); }
+static inline void release_lock (bool* l)
+    { *l = false; }
+
+#ifdef __cplusplus
+} // namespace
 } // extern "C"
 #endif
+//}}}-------------------------------------------------------------------

@@ -15,6 +15,8 @@ static int _casycom_LastSignal = 0;
 static int _casycom_ExitCode = EXIT_SUCCESS;
 /// Loop status
 static bool _casycom_Quitting = false;
+/// Output queue modification lock
+static bool _casycom_OutputQueueLock = false;
 /// Last error
 static char* _casycom_Error = NULL;
 /// Message queues
@@ -107,7 +109,9 @@ void casycom_reset (void)
     for (size_t i = 0; i < _casycom_OMap.size; ++i)
 	casycom_destroy_object (&_casycom_OMap.d[i]);
     vector_deallocate (&_casycom_OMap);
+    acquire_lock (&_casycom_OutputQueueLock);
     vector_deallocate (&_casycom_OutputQueue);
+    release_lock (&_casycom_OutputQueueLock);
     vector_deallocate (&_casycom_InputQueue);
     vector_deallocate (&_casycom_ObjectTable);
     xfree (_casycom_Error);
@@ -281,7 +285,9 @@ static void casycom_destroy_object (SMsgLink* ol)
 
 void casycom_queue_message (SMsg* msg)
 {
+    acquire_lock (&_casycom_OutputQueueLock);
     vector_push_back (&_casycom_OutputQueue, &msg);
+    release_lock (&_casycom_OutputQueueLock);
 }
 
 static const SMsgLink* casycom_find_destination (const SMsg* msg)
@@ -322,7 +328,9 @@ static void casycom_do_message_queues (void)
 	casymsg_free (_casycom_InputQueue.d[m]);
     vector_clear (&_casycom_InputQueue);
     // And make the output queue the input queue for the next round
+    acquire_lock (&_casycom_OutputQueueLock);
     vector_swap (&_casycom_InputQueue, &_casycom_OutputQueue);
+    release_lock (&_casycom_OutputQueueLock);
 }
 
 static SMsgLink* casycom_link_for_oid (oid_t oid)

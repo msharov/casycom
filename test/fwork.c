@@ -51,12 +51,12 @@ static void Ping_Dispatch (const DPing* dtable, void* o, const SMsg* msg)
 static void PPing_Ping (const PProxy* pp, uint32_t v)
 {
     // casymsg_begin will create a message of the given size (here sizeof(v))
-    // and return an output stream to the message body.
-    WStm msg = casymsg_begin (pp, method_Ping_Ping, sizeof(v));
+    SMsg* msg = casymsg_begin (pp, method_Ping_Ping, sizeof(v));
     // casystm functions are defined in stm.h
-    casystm_write_uint32 (&msg, v);
+    WStm os = casymsg_write (msg);
+    casystm_write_uint32 (&os, v);
     // When done, call casymsg_end. It will check for errors and queue the message.
-    casymsg_end (&msg);
+    casymsg_end (msg);
 }
 
 //----------------------------------------------------------------------

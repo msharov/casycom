@@ -12,11 +12,12 @@
 
 void PTimer_Watch (const PProxy* pp, enum EWatchCmd cmd, int fd, casytimer_t timeoutms)
 {
-    WStm os = casymsg_begin (pp, method_Timer_Watch, 16);
+    SMsg* msg = casymsg_begin (pp, method_Timer_Watch, 16);
+    WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, cmd);
     casystm_write_int32 (&os, fd);
     casystm_write_uint64 (&os, timeoutms);
-    casymsg_end (&os);
+    casymsg_end (msg);
 }
 
 static void Timer_Dispatch (const DTimer* dtable, void* o, const SMsg* msg)
@@ -42,9 +43,10 @@ const SInterface i_Timer = {
 
 void PTimerR_Timer (const PProxy* pp, int fd)
 {
-    WStm os = casymsg_begin (pp, method_TimerR_Timer, 4);
+    SMsg* msg = casymsg_begin (pp, method_TimerR_Timer, 4);
+    WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
-    casymsg_end (&os);
+    casymsg_end (msg);
 }
 
 static void TimerR_Dispatch (const DTimerR* dtable, void* o, const SMsg* msg)
@@ -103,9 +105,9 @@ void Timer_Destroy (void* vo)
 
 void Timer_Timer_Watch (STimer* o, enum EWatchCmd cmd, int fd, casytimer_t timeoutms)
 {
-    o->nextfire = Timer_NowMS() + timeoutms;
     o->cmd = cmd;
     o->fd = fd;
+    o->nextfire = timeoutms + Timer_NowMS();
 }
 
 /// Waits for timer or fd events.
