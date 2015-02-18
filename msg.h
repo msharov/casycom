@@ -22,16 +22,20 @@ typedef struct _SInterface {
 
 typedef const SInterface*	iid_t;
 
-typedef struct _SMsg {
+typedef struct _PProxy {
     iid_t	interface;
-    void*	body;
-    uint32_t	imethod;
-    uint32_t	size;
     oid_t	src;
     oid_t	dest;
+} PProxy;
+
+typedef struct _SMsg {
+    PProxy	h;
+    uint32_t	imethod;
+    uint32_t	size;
     oid_t	extid;
     uint8_t	fdoffset;
     uint8_t	reserved;
+    void*	body;
 } SMsg;
 
 enum {
@@ -40,19 +44,13 @@ enum {
     method_CreateObject = UINT32_MAX
 };
 
-typedef struct _PProxy {
-    iid_t	interface;
-    oid_t	src;
-    oid_t	dest;
-} PProxy;
-
 typedef struct _DTable {
     const iid_t	interface;
 } DTable;
 
 #define DMETHOD(o,m)	.m = (MFN_##m) o##_##m
 
-typedef void (*pfn_interface_dispatch)(const void* dtable, void* o, const SMsg* msg);
+typedef void (*pfn_dispatch)(const void* dtable, void* o, const SMsg* msg);
 
 //----------------------------------------------------------------------
 
@@ -72,8 +70,8 @@ namespace {
 #endif
 
 static inline const char* casymsg_method_name (const SMsg* msg) {
-    assert (casyiface_count_methods(msg->interface) > msg->imethod && "invalid method index in message");
-    return msg->interface->method[msg->imethod];
+    assert (casyiface_count_methods(msg->h.interface) > msg->imethod && "invalid method index in message");
+    return msg->h.interface->method[msg->imethod];
 }
 static inline const char* casymsg_signature (const SMsg* msg) {
     const char* mname = casymsg_method_name (msg);

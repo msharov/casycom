@@ -87,7 +87,7 @@ void vector_deallocate (void* vv)
     v->allocated = 0;
 }
 
-void* vector_insert_empty (void* vv, size_t ip)
+void* vector_emplace (void* vv, size_t ip)
 {
     assert (vv);
     vector* v = (vector*) vv;
@@ -102,7 +102,7 @@ void* vector_insert_empty (void* vv, size_t ip)
 
 void vector_insert (void* vv, size_t ip, const void* e)
 {
-    void* h = vector_insert_empty (vv, ip);
+    void* h = vector_emplace (vv, ip);
     memcpy (h, e, ((vector*)vv)->elsize);
 }
 

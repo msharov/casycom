@@ -9,8 +9,8 @@
 typedef struct _SObject {
     void*		(*Create)(const SMsg* msg);
     void		(*Destroy)(void* o);
-    void		(*ObjectDestroyed)(oid_t oid);
-    bool		(*Error)(oid_t eoid, const char* msg);
+    void		(*ObjectDestroyed)(void* o, oid_t oid);
+    bool		(*Error)(void* o, oid_t eoid, const char* msg);
     const void* const	interface[];
 } SObject;
 
@@ -28,6 +28,7 @@ typedef void* (pfn_object_init)(const SMsg* msg);
 
 void	casycom_register (const SObject* o) noexcept NONNULL();
 PProxy	casycom_create_proxy (iid_t iid, oid_t src) noexcept;
+void	casycom_destroy_proxy (PProxy* pp) noexcept NONNULL();
 void	casycom_error (const char* fmt, ...) noexcept PRINTFARGS(1,2);
 bool	casycom_forward_error (oid_t oid, oid_t eoid) noexcept;
 void	casycom_mark_unused (const void* o) noexcept NONNULL();
@@ -40,7 +41,7 @@ namespace {
 static inline PProxy casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest)
     { return (PProxy) { iid, src, dest }; }
 static inline PProxy casycom_create_reply_proxy (iid_t iid, const SMsg* msg)
-    { return casycom_create_proxy_to (iid, msg->dest, msg->src); }
+    { return casycom_create_proxy_to (iid, msg->h.dest, msg->h.src); }
 
 #ifdef __cplusplus
 } // namespace

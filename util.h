@@ -54,12 +54,14 @@ typedef struct _##name {		\
     const size_t	elsize;		\
 } name
 
-#define VECTOR(vtype,name)	vtype name = { NULL, 0, 0, sizeof(*(((vtype*)NULL)->d)) }
+#define VECTOR_INIT(vtype)	{ NULL, 0, 0, sizeof(*(((vtype*)NULL)->d)) }
+#define VECTOR(vtype,name)	vtype name = VECTOR_INIT(vtype)
+#define VECTOR_MEMBER_INIT(vtype,name)	*(size_t*)&(name).elsize = sizeof(*(((vtype*)NULL)->d));
 
 void	vector_reserve (void* v, size_t sz) noexcept;
 void	vector_deallocate (void* v) noexcept;
 void	vector_insert (void* v, size_t ip, const void* e) noexcept NONNULL();
-void*	vector_insert_empty (void* v, size_t ip) noexcept;
+void*	vector_emplace (void* v, size_t ip) noexcept;
 void	vector_erase_n (void* v, size_t ep, size_t n) noexcept;
 void	vector_swap (void* v1, void* v2) noexcept NONNULL();
 
@@ -71,8 +73,8 @@ static inline void vector_erase (void* v, size_t ep)
     { vector_erase_n (v, ep, 1); }
 static inline void vector_push_back (void* v, const void* e)
     { vector_insert (v, ((vector*)v)->size, e); }
-static inline void* vector_push_back_empty (void* v)
-    { return vector_insert_empty (v, ((vector*)v)->size); }
+static inline void* vector_emplace_back (void* v)
+    { return vector_emplace (v, ((vector*)v)->size); }
 static inline void vector_pop_back (void* v)
     { vector_erase (v, ((vector*)v)->size-1); }
 static inline void vector_clear (void* v)

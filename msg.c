@@ -10,17 +10,11 @@ SMsg* casymsg_begin (const PProxy* pp, uint32_t imethod, uint32_t sz)
     assert (pp && pp->interface);
     assert ((imethod == method_CreateObject || imethod < casyiface_count_methods (pp->interface)) && "invalid method index for this interface");
     SMsg* msg = (SMsg*) xalloc (sizeof(SMsg));
-    msg->interface = pp->interface;
+    msg->h = *pp;
     msg->imethod = imethod;
-    msg->src = pp->src;
-    msg->dest = pp->dest;
     msg->fdoffset = NO_FD_IN_MESSAGE;
-    msg->body = NULL;
-    if (sz) {
-	size_t asz = Align (sz, MESSAGE_BODY_ALIGNMENT);
-	msg->body = xalloc (asz);
-    }
-    msg->size = sz;
+    if ((msg->size = sz))
+	msg->body = xalloc (Align (sz, MESSAGE_BODY_ALIGNMENT));
     return msg;
 }
 
@@ -40,7 +34,7 @@ void casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body)
 
 void casymsg_forward (const PProxy* pp, SMsg* msg)
 {
-    assert (pp->interface == msg->interface && "messages can not be forwarded to a different interface");
+    assert (pp->interface == msg->h.interface && "messages can not be forwarded to a different interface");
     SMsg* fwm = casymsg_begin (pp, msg->imethod, 0);
     fwm->body = msg->body;
     fwm->size = msg->size;

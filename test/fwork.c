@@ -73,7 +73,7 @@ typedef struct _SPingObject {
 // msg->dest is the new object's oid, which may be saved if needed.
 static void* PingObject_Create (const SMsg* msg)
 {
-    printf ("Created PingObject %u\n", msg->dest);
+    printf ("Created PingObject %u\n", msg->h.dest);
     return xalloc (sizeof(SPingObject));
 }
 
