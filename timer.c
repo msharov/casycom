@@ -12,6 +12,7 @@
 
 void PTimer_Watch (const PProxy* pp, enum EWatchCmd cmd, int fd, casytimer_t timeoutms)
 {
+    assert (pp->interface == &i_Timer && "the given proxy is for a different interface");
     SMsg* msg = casymsg_begin (pp, method_Timer_Watch, 16);
     WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, cmd);
@@ -135,6 +136,13 @@ bool Timer_RunTimer (int toWait)
     if (toWait && nearest < TIMER_MAX)	// toWait could be zero, in which case don't
 	toWait = nearest - Timer_NowMS();
     // And wait
+    if (DEBUG_MSG_TRACE) {
+	DEBUG_PRINTF ("[I] Waiting for %zu file descriptors from %zu timers", nFds, _timer_WatchList.size);
+	if (toWait > 0)
+	    DEBUG_PRINTF (" with %d ms timeout\n", toWait);
+	else
+	    DEBUG_PRINTF ("\n");
+    }
     if (0 > poll (fds, nFds, toWait))
 	casycom_error ("poll: %s", strerror(errno));
     // poll will exit when there are fds available or when the timer expires
@@ -171,8 +179,8 @@ static const DTimer d_TimerObject_Timer = {
     .interface = &i_Timer,
     DMETHOD (Timer, Timer_Watch)
 };
-const SObject o_TimerObject = {
+const SFactory f_TimerObject = {
     .Create	= Timer_Create,
     .Destroy	= Timer_Destroy,
-    .interface	= { &d_TimerObject_Timer, NULL }
+    .dtable	= { &d_TimerObject_Timer, NULL }
 };

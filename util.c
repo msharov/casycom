@@ -62,6 +62,33 @@ void casycom_backtrace (void)
 
 #endif
 
+static inline char _num_to_digit (uint8_t b)
+{
+    char d = (b & 0xF) + '0';
+    return d <= '9' ? d : d+('A'-'0'-10);
+}
+static inline bool _printable (char c)
+{
+    return c >= 32 && c < 127;
+}
+void hexdump (const void* pv, size_t n)
+{
+    const uint8_t* p = (const uint8_t*) pv;
+    char line[65]; line[64] = 0;
+    for (size_t i = 0; i < n; i += 16) {
+	memset (line, ' ', sizeof(line)-1);
+	for (size_t h = 0; h < 16; ++h) {
+	    if (i+h < n) {
+		uint8_t b = p[i+h];
+		line[h*3] = _num_to_digit(b>>4);
+		line[h*3+1] = _num_to_digit(b);
+		line[h+3*16] = _printable(b) ? b : '.';
+	    }
+	}
+	puts (line);
+    }
+}
+
 //}}}-------------------------------------------------------------------
 //{{{ vector
 

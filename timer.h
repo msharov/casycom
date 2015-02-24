@@ -69,7 +69,7 @@ void PTimerR_Timer (const PProxy* pp, int fd);
 
 //----------------------------------------------------------------------
 
-extern const SObject o_TimerObject;
+extern const SFactory f_TimerObject;
 
 bool		Timer_RunTimer (int toWait) noexcept;
 casytimer_t	Timer_NowMS (void) noexcept;

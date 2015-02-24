@@ -5,6 +5,7 @@
 
 #pragma once
 #include "config.h"
+#include <syslog.h>
 
 //{{{ Memory management ------------------------------------------------
 
@@ -27,11 +28,13 @@ void*	xrealloc (void* p, size_t sz) noexcept MALLOCLIKE;
 //{{{ Debugging
 
 #ifndef NDEBUG
-void	casycom_log (int type, const char* fmt, ...) PRINTFARGS(2,3);
-void	casycom_backtrace (void);
+void	casycom_log (int type, const char* fmt, ...) noexcept PRINTFARGS(2,3);
+void	casycom_backtrace (void) noexcept;
 #else
 #define casycom_log(type,...)	syslog(type,__VA_ARGS__)
 #endif
+
+void hexdump (const void* pv, size_t n) noexcept;
 
 //}}}-------------------------------------------------------------------
 //{{{ vector

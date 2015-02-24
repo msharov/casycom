@@ -15,9 +15,9 @@ enum { oid_Broadcast, oid_App, oid_First };
 typedef const char*	methodid_t;
 
 typedef struct _SInterface {
-    const char*	name;
     const void*	dispatch;
-    const char*	method[];
+    methodid_t	name;
+    methodid_t	method[];
 } SInterface;
 
 typedef const SInterface*	iid_t;

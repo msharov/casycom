@@ -1,9 +1,13 @@
 ################ Source files ##########################################
 
 test/SRCS	:= $(wildcard test/*.c)
-test/TESTS	:= $(addprefix $O,$(test/SRCS:.c=))
-test/OBJS	:= $(addprefix $O,$(test/SRCS:.c=.o))
-test/DEPS	:= ${test/OBJS:.o=.d}
+test/TSRCS	:= $(wildcard test/?????.c)
+test/ASRCS	:= $(filter-out ${test/TSRCS}, ${test/SRCS})
+test/TESTS	:= $(addprefix $O,$(test/TSRCS:.c=))
+test/TOBJS	:= $(addprefix $O,$(test/TSRCS:.c=.o))
+test/AOBJS	:= $(addprefix $O,$(test/ASRCS:.c=.o))
+test/OBJS	:= ${test/TOBJS} ${test/AOBJS}
+test/DEPS	:= ${test/TOBJS:.o=.d} ${test/AOBJS:.o=.d}
 
 ################ Compilation ###########################################
 
@@ -23,7 +27,7 @@ test/check:	${test/TESTS}
 	    diff $$TEST.std $$i.out && rm -f $$i.out;\
 	done
 
-${test/TESTS}: $Otest/%: $Otest/%.o ${LIBA}
+${test/TESTS}: $Otest/%: $Otest/%.o ${test/AOBJS} ${LIBA}
 	@echo "Linking $@ ..."
 	@${CC} ${LDFLAGS} -o $@ $^
 

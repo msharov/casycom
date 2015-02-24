@@ -4,9 +4,17 @@
 // This file is free software, distributed under the MIT License.
 
 #include "xcom.h"
+#include "timer.h"
 
-//----------------------------------------------------------------------
-// COM proxy
+//{{{ Local prototypes -------------------------------------------------
+
+struct _SExtern;
+
+static void COM_COM_Message (void* vo, SMsg* msg);
+static void Extern_QueueMessage (struct _SExtern* o, SMsg* msg);
+
+//}}}-------------------------------------------------------------------
+//{{{ PCOM
 
 void PCOM_Error (const PProxy* pp, const char* error)
 {
@@ -29,21 +37,20 @@ void PCOM_Delete (const PProxy* pp)
     casymsg_end (casymsg_begin (pp, method_COM_Delete, 0));
 }
 
-static void PCOM_Dispatch (const DCOM* dtable, void* vo, SMsg* msg)
+static void PCOM_Dispatch (const DCOM* dtable, void* o, SMsg* msg)
 {
-    SCOM* o = (SCOM*) vo;
     if (msg->h.interface != &i_COM)
 	COM_COM_Message (o, msg);
     else if (msg->imethod == method_COM_Error) {
 	RStm is = casymsg_read (msg);
 	const char* error = casystm_read_string (&is);
-	COM_COM_Error (o, error, msg);
+	dtable->COM_Error (o, error, msg);
     } else if (msg->imethod == method_COM_Export) {
 	RStm is = casymsg_read (msg);
 	const char* elist = casystm_read_string (&is);
-	COM_COM_Export (o, elist, msg);
+	dtable->COM_Export (o, elist, msg);
     } else if (msg->imethod == method_COM_Delete)
-	COM_COM_Delete (o, msg);
+	dtable->COM_Delete (o, msg);
     else
 	casymsg_default_dispatch (dtable, o, msg);
 }
@@ -54,76 +61,97 @@ const SInterface i_COM = {
     .method = { "Error\0s", "Export\0s", "Delete\0", NULL }
 };
 
-//----------------------------------------------------------------------
-// COM object
+//}}}-------------------------------------------------------------------
+//{{{ COM object
 
-void* COM_Create (const SMsg* msg)
+typedef struct _SCOM {
+    PProxy	reply;
+} SCOM;
+
+//----------------------------------------------------------------------
+
+static void* COM_Create (const SMsg* msg)
 {
     SCOM* o = (SCOM*) xalloc (sizeof(SCOM));
     o->reply = casycom_create_reply_proxy (&i_COM, msg);
-    o->forwd = casycom_create_proxy (&i_COM, msg->h.dest);
     return o;
 }
 
-void COM_Destroy (void* o)
+static void COM_Destroy (void* o)
 {
     xfree (o);
 }
 
-void COM_ObjectDestroyed (void* o, oid_t oid UNUSED)
+static void COM_ObjectDestroyed (void* o, oid_t oid UNUSED)
 {
     casycom_mark_unused (o);
 }
 
-bool COM_Error (void* o, oid_t eoid UNUSED, const char* msg UNUSED)
+static bool COM_Error (void* o, oid_t eoid UNUSED, const char* msg UNUSED)
 {
     casycom_mark_unused (o);
     return false;
 }
 
-const SObject o_COM = {
+//----------------------------------------------------------------------
+
+static void COM_COM_Error (SCOM* o, const char* error, SMsg* msg UNUSED)
+{
+    casycom_error ("%s", error);
+    casycom_forward_error (o->reply.src, o->reply.dest);
+}
+
+static void COM_COM_Export (SCOM* o UNUSED, const char* elist UNUSED, const SMsg* msg UNUSED)
+{
+}
+
+static void COM_COM_Delete (SCOM* o, const SMsg* msg UNUSED)
+{
+    casycom_mark_unused (o);
+}
+
+static void COM_COM_Message (void* vo, SMsg* msg)
+{
+    SCOM* o = (SCOM*) vo;
+    if (msg->h.src == o->reply.dest)
+	Extern_QueueMessage (NULL, msg);
+    else
+	casymsg_forward (&o->reply, msg);
+}
+
+//----------------------------------------------------------------------
+
+static const DCOM d_COM_COM = {
+    .interface = &i_COM,
+    DMETHOD (COM, COM_Error),
+    DMETHOD (COM, COM_Export),
+    DMETHOD (COM, COM_Delete)
+};
+const SFactory f_COM = {
     .Create		= COM_Create,
     .Destroy		= COM_Destroy,
     .ObjectDestroyed	= COM_ObjectDestroyed,
     .Error		= COM_Error,
-    .interface		= { &i_COM, NULL }
+    .dtable		= { &d_COM_COM, NULL }
 };
 
-//----------------------------------------------------------------------
+const SInterface* const eil_None[1] = { NULL };
+static const SInterface* const* _casycom_ExportedInterfaces = eil_None;
 
-void COM_COM_Error (SCOM* o, const char* error UNUSED, SMsg* msg)
+// Registers the Extern server and the COM forwarder in addition to exported interfaces list
+void casycom_register_externs (const SInterface* const* eo)
 {
-    if (msg->h.src == o->reply.dest)
-	casymsg_forward (&o->forwd, msg);
-    else if (msg->h.src == o->forwd.dest)
-	casymsg_forward (&o->forwd, msg);
-    else
-	assert (!"internal error: COM object receives message from unexpected source");
+    _casycom_ExportedInterfaces = eo;
+    casycom_register (&f_Extern);
+    casycom_register_default (&f_COM);
 }
 
-void COM_COM_Export (SCOM* o UNUSED, const char* elist UNUSED, const SMsg* msg UNUSED)
-{
-}
-
-void COM_COM_Delete (SCOM* o UNUSED, const SMsg* msg UNUSED)
-{
-}
-
-void COM_COM_Message (SCOM* o, SMsg* msg)
-{
-    if (msg->h.src == o->reply.dest)
-	casymsg_forward (&o->forwd, msg);
-    else if (msg->h.src == o->forwd.dest)
-	casymsg_forward (&o->forwd, msg);
-    else
-	assert (!"internal error: COM object receives message from unexpected source");
-}
-
-//----------------------------------------------------------------------
-// Extern
+//}}}-------------------------------------------------------------------
+//{{{ PExtern
 
 void PExtern_Attach (const PProxy* pp, int fd, enum EExternAttachType atype)
 {
+    assert (pp->interface == &i_Extern && "this proxy is for a different interface");
     SMsg* msg = casymsg_begin (pp, method_Extern_Attach, 8);
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
@@ -138,6 +166,7 @@ void PExtern_Detach (const PProxy* pp)
 
 static void PExtern_Dispatch (const DExtern* dtable, void* o, const SMsg* msg)
 {
+    assert (dtable->interface == &i_Extern && "dispatch given dtable for a different interface");
     if (msg->imethod == method_Extern_Attach) {
 	RStm is = casymsg_read (msg);
 	int fd = casystm_read_int32 (&is);
@@ -155,17 +184,44 @@ const SInterface i_Extern = {
     .method = { "Attach\0iu", "Detach\0", NULL }
 };
 
-//----------------------------------------------------------------------
-// Extern object
+//}}}-------------------------------------------------------------------
+//{{{ PExternR
+
+void PExternR_Connected (const PProxy* pp)
+{
+    assert (pp->interface == &i_ExternR && "this proxy is for a different interface");
+    casymsg_end (casymsg_begin (pp, method_ExternR_Connected, 0));
+}
+
+static void PExternR_Dispatch (const DExternR* dtable, void* o, const SMsg* msg)
+{
+    assert (dtable->interface == &i_ExternR && "dispatch given dtable for a different interface");
+    if (msg->imethod == method_ExternR_Connected)
+	dtable->ExternR_Connected (o, msg);
+    else
+	casymsg_default_dispatch (dtable, o, msg);
+}
+
+const SInterface i_ExternR = {
+    .name = "ExternR",
+    .dispatch = PExternR_Dispatch,
+    .method = { "Connected\0", NULL }
+};
+
+//}}}-------------------------------------------------------------------
+//{{{ Extern object
 
 DECLARE_VECTOR_TYPE (ProxyVector, PProxy);
+DECLARE_VECTOR_TYPE (RObjVector, SCOM*);
 DECLARE_VECTOR_TYPE (SMsgVector, SMsg*);
 
 typedef struct _SExtern {
+    PProxy	timer;
     int		fd;
     bool	isClient;
     bool	canPassFd;
-    ProxyVector	ownedObjects;
+    RObjVector	outObjects;
+    ProxyVector	inObjects;
     SMsgVector	outgoing;
     SMsgVector	incoming;
 } SExtern;
@@ -174,7 +230,9 @@ static void* Extern_Create (const SMsg* msg UNUSED)
 {
     SExtern* o = (SExtern*) xalloc (sizeof(SExtern));
     o->fd = -1;
-    VECTOR_MEMBER_INIT (ProxyVector, o->ownedObjects);
+    o->timer = casycom_create_proxy (&i_Timer, msg->h.dest);
+    VECTOR_MEMBER_INIT (RObjVector, o->outObjects);
+    VECTOR_MEMBER_INIT (ProxyVector, o->inObjects);
     VECTOR_MEMBER_INIT (SMsgVector, o->outgoing);
     VECTOR_MEMBER_INIT (SMsgVector, o->incoming);
     return o;
@@ -185,7 +243,8 @@ static void Extern_Destroy (void* vo)
     SExtern* o = (SExtern*) vo;
     if (o->fd >= 0)
 	close (o->fd);
-    vector_deallocate (&o->ownedObjects);
+    vector_deallocate (&o->outObjects);
+    vector_deallocate (&o->inObjects);
     for (size_t i = 0; i < o->outgoing.size; ++i)
 	casymsg_free (o->outgoing.d[i]);
     vector_deallocate (&o->outgoing);
@@ -194,21 +253,34 @@ static void Extern_Destroy (void* vo)
     vector_deallocate (&o->incoming);
 }
 
-static void ExternObject_Extern_Attach (SExtern* o UNUSED, int fd UNUSED, enum EExternAttachType atype UNUSED, const SMsg* msg UNUSED)
+static void Extern_Extern_Attach (SExtern* o UNUSED, int fd UNUSED, enum EExternAttachType atype UNUSED, const SMsg* msg UNUSED)
 {
 }
 
-static void ExternObject_Extern_Detach (SExtern* o UNUSED, const SMsg* msg UNUSED)
+static void Extern_Extern_Detach (SExtern* o UNUSED, const SMsg* msg UNUSED)
 {
 }
 
-static const DExtern d_ExternObject_Extern = {
+static void Extern_QueueMessage (SExtern* o, SMsg* msg)
+{
+    if (!o)
+	return;
+    SMsg* qm = casymsg_begin (&msg->h, msg->imethod, 0);
+    *qm = *msg;
+    msg->size = 0;
+    msg->body = NULL;
+    vector_push_back (&o->outgoing, qm);
+}
+
+static const DExtern d_Extern_Extern = {
     .interface	= &i_Extern,
-    DMETHOD (ExternObject, Extern_Attach),
-    DMETHOD (ExternObject, Extern_Detach)
+    DMETHOD (Extern, Extern_Attach),
+    DMETHOD (Extern, Extern_Detach)
 };
-static const SObject o_ExternObject = {
+const SFactory f_Extern = {
     .Create	= Extern_Create,
     .Destroy	= Extern_Destroy,
-    .interface	= { &d_ExternObject_Extern, NULL }
+    .dtable	= { &d_Extern_Extern, NULL }
 };
+
+//}}}-------------------------------------------------------------------

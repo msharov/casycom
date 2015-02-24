@@ -6,8 +6,12 @@
 #pragma once
 #include "main.h"
 
-//----------------------------------------------------------------------
-// PCOM
+//{{{
+#ifdef __cplusplus
+extern "C" {
+#endif
+//}}}-------------------------------------------------------------------
+//{{{ COM interface and object
 
 enum ECOMMethod {
     method_COM_Error,
@@ -31,45 +35,14 @@ void PCOM_Error (const PProxy* pp, const char* error);
 void PCOM_Export (const PProxy* pp, const char* elist);
 void PCOM_Delete (const PProxy* pp);
 
-//----------------------------------------------------------------------
-// COM object
+extern const SFactory f_COM;
 
-typedef struct _SCOM {
-    PProxy	reply;
-    PProxy	forwd;
-} SCOM;
+extern const SInterface* const eil_None[1];
 
-void* COM_Create (const SMsg* msg) noexcept NONNULL();
-void COM_Destroy (void* o) noexcept NONNULL();
-void COM_ObjectDestroyed (void* o, oid_t oid) noexcept;
-bool COM_Error (void* o, oid_t eoid, const char* msg) noexcept NONNULL();
+void casycom_register_externs (const SInterface* const* eo) noexcept NONNULL();
 
-void COM_COM_Error (SCOM* o, const char* error, SMsg* msg) noexcept NONNULL();
-void COM_COM_Export (SCOM* o, const char* elist, const SMsg* msg) noexcept NONNULL();
-void COM_COM_Delete (SCOM* o, const SMsg* msg) noexcept NONNULL();
-void COM_COM_Message (SCOM* o, SMsg* msg) noexcept NONNULL();
-
-extern const SObject o_COM;
-
-#define DEFINE_EXTERN_DTABLE(name,iface)	\
-const DCOM name = {				\
-    .interface = iface;				\
-    DMETHOD (COM, COM_Error);			\
-    DMETHOD (COM, COM_Export);			\
-    DMETHOD (COM, COM_Delete);			\
-}
-
-#define DEFINE_EXTERNS_OBJECT(name, ...)	\
-const SObject name = {				\
-    .Create		= COM_Create,		\
-    .Destroy		= COM_Destroy,		\
-    .ObjectDestroyed	= COM_ObjectDestroyed,	\
-    .Error		= COM_Error,		\
-    .interface		= { __VA_ARGS__, NULL }	\
-}
-
-//----------------------------------------------------------------------
-// PExtern
+//}}}-------------------------------------------------------------------
+//{{{ Extern interface and object
 
 enum EExternMethod {
     method_Extern_Attach,
@@ -88,10 +61,34 @@ typedef struct _DExtern {
     MFN_Extern_Detach	Extern_Detach;
 } DExtern;
 
+void PExtern_Attach (const PProxy* pp, int fd, enum EExternAttachType atype) noexcept NONNULL();
+void PExtern_Detach (const PProxy* pp) noexcept NONNULL();
+
 extern const SInterface i_Extern;
 
-void PExtern_Attach (const PProxy* pp, int fd, enum EExternAttachType atype);
-void PExtern_Detach (const PProxy* pp);
+//----------------------------------------------------------------------
+
+enum EExternRMethod {
+    method_ExternR_Connected,
+    method_ExternR_N
+};
+typedef void (*MFN_ExternR_Connected)(void* vo, const SMsg* msg);
+typedef struct _DExternR {
+    iid_t			interface;
+    MFN_ExternR_Connected	ExternR_Connected;
+} DExternR;
+
+void PExternR_Connected (const PProxy* pp) noexcept NONNULL();
+
+extern const SInterface i_ExternR;
 
 //----------------------------------------------------------------------
-// Extern object
+
+extern const SFactory f_Extern;
+
+//}}}-------------------------------------------------------------------
+//{{{
+#ifdef __cplusplus
+} // extern "C"
+#endif
+//}}}

@@ -1,0 +1,18 @@
+[T] Registered class Extern
+[T] Registered default class COM
+[T] Created proxy link 1 -> 2.Ping
+[I]=============================================================
+[T] Message[4] 1 -> 2.Ping.Ping
+01 00 00 00                                     ....            
+[T] Creating object 2.Ping
+[T] Created proxy link 2 -> 1.COM
+[I]=============================================================
+[E] Ran out of messages. Quitting.
+[T] Quit requested, exit code 0
+[I] Resetting casycom
+[T] Destroyed proxy link 1 -> 2.Ping
+[T] Destroying object 2.Ping
+[T] Destroyed proxy link 2 -> 1.COM
+[T] Destroyed proxy link 0 -> 1.App
+[T] Destroying object 1.App
+[I] Reset complete

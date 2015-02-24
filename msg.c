@@ -34,8 +34,8 @@ void casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body)
 
 void casymsg_forward (const PProxy* pp, SMsg* msg)
 {
-    assert (pp->interface == msg->h.interface && "messages can not be forwarded to a different interface");
     SMsg* fwm = casymsg_begin (pp, msg->imethod, 0);
+    fwm->h.interface = msg->h.interface;
     fwm->body = msg->body;
     fwm->size = msg->size;
     msg->size = 0;
