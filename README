@@ -1,0 +1,8 @@
+	+======================+
+	|       CAsyCOM        |
+	+======================+
+
+This is a C-based implementation of the AsyCOM framework,
+an event-driven asynchronous component object framework.
+
+./configure && make install && make check
