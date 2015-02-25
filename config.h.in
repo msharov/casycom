@@ -23,7 +23,6 @@
 
 // Common includes
 #include <assert.h>
-#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -53,4 +52,11 @@
 #else
     #define noexcept		__attribute__((nothrow))
     #define constexpr		CONST
+#endif
+
+// Various clang quirks
+#if __clang__
+    #define atomic_exchange(o,v)	__c11_atomic_exchange(o,v,__ATOMIC_SEQ_CST)
+#else
+    #include <stdatomic.h>
 #endif

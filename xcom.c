@@ -5,13 +5,20 @@
 
 #include "xcom.h"
 #include "timer.h"
+#include <fcntl.h>
+#include <sys/socket.h>
 
 //{{{ Local prototypes -------------------------------------------------
 
 struct _SExtern;
 
+static bool Extern_IsValidSocket (struct _SExtern* o);
 static void COM_COM_Message (void* vo, SMsg* msg);
+static void Extern_Extern_Close (struct _SExtern* o);
 static void Extern_QueueMessage (struct _SExtern* o, SMsg* msg);
+static void Extern_TimerR_Timer (struct _SExtern* o);
+static void Extern_Reading (struct _SExtern* o);
+static bool Extern_Writing (struct _SExtern* o);
 
 //}}}-------------------------------------------------------------------
 //{{{ PCOM
@@ -149,31 +156,31 @@ void casycom_register_externs (const SInterface* const* eo)
 //}}}-------------------------------------------------------------------
 //{{{ PExtern
 
-void PExtern_Attach (const PProxy* pp, int fd, enum EExternAttachType atype)
+void PExtern_Open (const PProxy* pp, int fd, enum EExternType atype)
 {
     assert (pp->interface == &i_Extern && "this proxy is for a different interface");
-    SMsg* msg = casymsg_begin (pp, method_Extern_Attach, 8);
+    SMsg* msg = casymsg_begin (pp, method_Extern_Open, 8);
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
     casystm_write_uint32 (&os, atype);
     casymsg_end (msg);
 }
 
-void PExtern_Detach (const PProxy* pp)
+void PExtern_Close (const PProxy* pp)
 {
-    casymsg_end (casymsg_begin (pp, method_Extern_Detach, 0));
+    casymsg_end (casymsg_begin (pp, method_Extern_Close, 0));
 }
 
 static void PExtern_Dispatch (const DExtern* dtable, void* o, const SMsg* msg)
 {
     assert (dtable->interface == &i_Extern && "dispatch given dtable for a different interface");
-    if (msg->imethod == method_Extern_Attach) {
+    if (msg->imethod == method_Extern_Open) {
 	RStm is = casymsg_read (msg);
 	int fd = casystm_read_int32 (&is);
-	enum EExternAttachType atype = casystm_read_uint32 (&is);
-	dtable->Extern_Attach (o, fd, atype, msg);
-    } else if (msg->imethod == method_Extern_Detach)
-	dtable->Extern_Detach (o, msg);
+	enum EExternType atype = casystm_read_uint32 (&is);
+	dtable->Extern_Open (o, fd, atype, msg);
+    } else if (msg->imethod == method_Extern_Close)
+	dtable->Extern_Close (o, msg);
     else
 	casymsg_default_dispatch (dtable, o, msg);
 }
@@ -181,7 +188,7 @@ static void PExtern_Dispatch (const DExtern* dtable, void* o, const SMsg* msg)
 const SInterface i_Extern = {
     .name = "Extern",
     .dispatch = PExtern_Dispatch,
-    .method = { "Attach\0iu", "Detach\0", NULL }
+    .method = { "Open\0iu", "Close\0", NULL }
 };
 
 //}}}-------------------------------------------------------------------
@@ -216,8 +223,9 @@ DECLARE_VECTOR_TYPE (RObjVector, SCOM*);
 DECLARE_VECTOR_TYPE (SMsgVector, SMsg*);
 
 typedef struct _SExtern {
-    PProxy	timer;
+    PProxy	reply;
     int		fd;
+    PProxy	timer;
     bool	isClient;
     bool	canPassFd;
     RObjVector	outObjects;
@@ -226,9 +234,10 @@ typedef struct _SExtern {
     SMsgVector	incoming;
 } SExtern;
 
-static void* Extern_Create (const SMsg* msg UNUSED)
+static void* Extern_Create (const SMsg* msg)
 {
     SExtern* o = (SExtern*) xalloc (sizeof(SExtern));
+    o->reply = casycom_create_reply_proxy (&i_ExternR, msg);
     o->fd = -1;
     o->timer = casycom_create_proxy (&i_Timer, msg->h.dest);
     VECTOR_MEMBER_INIT (RObjVector, o->outObjects);
@@ -253,12 +262,24 @@ static void Extern_Destroy (void* vo)
     vector_deallocate (&o->incoming);
 }
 
-static void Extern_Extern_Attach (SExtern* o UNUSED, int fd UNUSED, enum EExternAttachType atype UNUSED, const SMsg* msg UNUSED)
+static void Extern_Extern_Open (SExtern* o, int fd, enum EExternType atype)
 {
+    o->fd = fd;
+    o->isClient = atype == EXTERN_CLIENT;
+    if (!Extern_IsValidSocket (o)) {
+	casycom_error ("incompatible socket type");
+	return Extern_Extern_Close (o);
+    }
+    Extern_TimerR_Timer (o);
 }
 
-static void Extern_Extern_Detach (SExtern* o UNUSED, const SMsg* msg UNUSED)
+static void Extern_Extern_Close (SExtern* o)
 {
+    if (o->fd >= 0) {
+	close (o->fd);
+	o->fd = -1;
+    }
+    casycom_mark_unused (o);
 }
 
 static void Extern_QueueMessage (SExtern* o, SMsg* msg)
@@ -272,15 +293,70 @@ static void Extern_QueueMessage (SExtern* o, SMsg* msg)
     vector_push_back (&o->outgoing, qm);
 }
 
+static bool Extern_IsValidSocket (SExtern* o)
+{
+    // The incoming socket must be a stream socket
+    int v;
+    socklen_t l = sizeof(v);
+    if (getsockopt (o->fd, SOL_SOCKET, SO_TYPE, &v, &l) < 0 || v != SOCK_STREAM)
+	return false;
+    // It must be a listening server socket
+    if (getsockopt (o->fd, SOL_SOCKET, SO_ACCEPTCONN, &v, &l) < 0 || v != true)
+	return false;
+    // And it must match the family (PF_LOCAL or PF_INET)
+    struct sockaddr_storage ss;
+    l = sizeof(ss);
+    if (getsockname(o->fd, (struct sockaddr*) &ss, &l) < 0)
+	return false;
+    o->canPassFd = false;
+    if (ss.ss_family == PF_LOCAL)
+	o->canPassFd = true;
+    else if (ss.ss_family != PF_INET)
+	return false;
+    // If matches, need to set the fd nonblocking for the poll loop to work
+    int f = fcntl (o->fd, F_GETFL);
+    if (f < 0)
+	return false;
+    if (0 > fcntl (o->fd, F_SETFL, f| O_NONBLOCK| O_CLOEXEC))
+	return false;
+    return true;
+}
+
+//----------------------------------------------------------------------
+
+static void Extern_TimerR_Timer (SExtern* o)
+{
+    Extern_Reading (o);
+    unsigned tcmd = WATCH_READ;
+    if (Extern_Writing (o))
+	tcmd |= WATCH_WRITE;
+    PTimer_Watch (&o->timer, tcmd, o->fd, TIMER_NONE);
+}
+
+static void Extern_Reading (SExtern* o UNUSED)
+{
+}
+
+static bool Extern_Writing (SExtern* o UNUSED)
+{
+    return false;
+}
+
+//----------------------------------------------------------------------
+
 static const DExtern d_Extern_Extern = {
     .interface	= &i_Extern,
-    DMETHOD (Extern, Extern_Attach),
-    DMETHOD (Extern, Extern_Detach)
+    DMETHOD (Extern, Extern_Open),
+    DMETHOD (Extern, Extern_Close)
+};
+static const DTimerR d_Extern_TimerR = {
+    .interface	= &i_TimerR,
+    DMETHOD (Extern, TimerR_Timer)
 };
 const SFactory f_Extern = {
     .Create	= Extern_Create,
     .Destroy	= Extern_Destroy,
-    .dtable	= { &d_Extern_Extern, NULL }
+    .dtable	= { &d_Extern_Extern, &d_Extern_TimerR, NULL }
 };
 
 //}}}-------------------------------------------------------------------

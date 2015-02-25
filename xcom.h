@@ -45,24 +45,24 @@ void casycom_register_externs (const SInterface* const* eo) noexcept NONNULL();
 //{{{ Extern interface and object
 
 enum EExternMethod {
-    method_Extern_Attach,
-    method_Extern_Detach,
+    method_Extern_Open,
+    method_Extern_Close,
     method_Extern_N
 };
-enum EExternAttachType {
-    ATTACH_AS_SERVER,
-    ATTACH_AS_CLIENT
+enum EExternType {
+    EXTERN_CLIENT,
+    EXTERN_SERVER
 };
-typedef void (*MFN_Extern_Attach)(void* vo, int fd, enum EExternAttachType atype, const SMsg* msg);
-typedef void (*MFN_Extern_Detach)(void* vo, const SMsg* msg);
+typedef void (*MFN_Extern_Open)(void* vo, int fd, enum EExternType atype, const SMsg* msg);
+typedef void (*MFN_Extern_Close)(void* vo, const SMsg* msg);
 typedef struct _DExtern {
     iid_t		interface;
-    MFN_Extern_Attach	Extern_Attach;
-    MFN_Extern_Detach	Extern_Detach;
+    MFN_Extern_Open	Extern_Open;
+    MFN_Extern_Close	Extern_Close;
 } DExtern;
 
-void PExtern_Attach (const PProxy* pp, int fd, enum EExternAttachType atype) noexcept NONNULL();
-void PExtern_Detach (const PProxy* pp) noexcept NONNULL();
+void PExtern_Open (const PProxy* pp, int fd, enum EExternType atype) noexcept NONNULL();
+void PExtern_Close (const PProxy* pp) noexcept NONNULL();
 
 extern const SInterface i_Extern;
 

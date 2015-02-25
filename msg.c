@@ -57,7 +57,7 @@ uint32_t casyiface_count_methods (iid_t iid)
 static size_t casymsg_sigelement_size (char c)
 {
     static const struct { char sym; uint8_t sz; } syms[] =
-	{{'y',1},{'n',2},{'q',2},{'b',4},{'i',4},{'u',4},{'h',4},{'x',8},{'t',8}};
+	{{'y',1},{'b',1},{'n',2},{'q',2},{'i',4},{'u',4},{'h',4},{'x',8},{'t',8}};
     for (unsigned i = 0; i < ArraySize(syms); ++i)
 	if (syms[i].sym == c)
 	    return syms[i].sz;

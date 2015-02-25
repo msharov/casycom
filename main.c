@@ -20,7 +20,7 @@ static int _casycom_ExitCode = EXIT_SUCCESS;
 // Loop status
 static bool _casycom_Quitting = false;
 // Output queue modification lock
-static bool _casycom_OutputQueueLock = false;
+static _Atomic(bool) _casycom_OutputQueueLock = false;
 // Last error
 static char* _casycom_Error = NULL;
 // App proxy

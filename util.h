@@ -106,15 +106,19 @@ namespace {
 static inline void tight_loop_pause (void)
 {
     #if __i386__ || __x86_64__
-	__builtin_ia32_pause();
+	#if __clang__
+	    __asm__ volatile ("rep nop");
+	#else
+	    __builtin_ia32_pause();
+	#endif
     #else
 	usleep (1);
     #endif
 }
 
-static inline void acquire_lock (bool* l)
+static inline void acquire_lock (_Atomic(bool)* l)
     { do { tight_loop_pause(); } while (atomic_exchange (l, true)); }
-static inline void release_lock (bool* l)
+static inline void release_lock (_Atomic(bool)* l)
     { *l = false; }
 
 #ifdef __cplusplus
