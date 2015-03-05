@@ -20,9 +20,15 @@ static inline constexpr size_t Floor (size_t n, size_t grain)	{ return n - n % g
 static inline constexpr size_t Align (size_t n, size_t grain)	{ return Floor (n+grain-1, grain); }
 static inline constexpr size_t DivRU (size_t n1, size_t n2)	{ return (n1 + n2-1) / n2; }
 
+static inline const char* strnext (const char* s)		{ return s+strlen(s)+1; }
+
 void*	xalloc (size_t sz) noexcept MALLOCLIKE;
 void*	xrealloc (void* p, size_t sz) noexcept MALLOCLIKE;
 #define xfree(p)	do { if (p) { free(p); p = NULL; } } while (false)
+
+// Define explicit aliasing cast to work around strict aliasing rules
+#define DEFINE_ALIAS_CAST(name,type)	\
+    type* name (void* p) { union { void* p; type* t; } __attribute__((may_alias)) cs = { .p = p }; return cs.t; }
 
 //}}}-------------------------------------------------------------------
 //{{{ Debugging
@@ -80,8 +86,8 @@ static inline void* vector_emplace_back (void* v)
     { return vector_emplace (v, ((vector*)v)->size); }
 static inline void vector_pop_back (void* v)
     { vector_erase (v, ((vector*)v)->size-1); }
-static inline void vector_clear (void* v)
-    { vector_erase_n (v, 0, ((vector*)v)->size); }
+static inline void vector_clear (void* vv)
+    { vector* v = (vector*) vv; v->size = 0; }
 static inline void vector_detach (void* vv)
     { vector* v = (vector*) vv; v->d = NULL; v->size = v->allocated = 0; }
 static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {

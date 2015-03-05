@@ -109,7 +109,9 @@ static void casycom_on_fatal_signal (int sig)
 static void casycom_on_msg_signal (int sig)
 {
     DEBUG_PRINTF ("[S] Signal %d: %s\n", sig, strsignal(sig));
-    alarm (1);
+    #ifdef NDEBUG
+	alarm (1);
+    #endif
     _casycom_LastSignal = sig;
     if (sig == SIGCHLD)
 	_casycom_LastChildPid = waitpid (-1, &_casycom_LastChildStatus, WNOHANG);
@@ -287,6 +289,17 @@ static void* casycom_create_link_object (SMsgLink* ml, const SMsg* msg)
 
 static void casycom_destroy_object (SMsgLink* ol)
 {
+    // Notify callers of destruction
+    for (size_t di = 0; di < _casycom_OMap.size; ++di) {
+	const SMsgLink* cl = &_casycom_OMap.d[di];
+	if (ol != cl && cl->h.dest == ol->h.dest) {	// Object calls the destroyed object
+	    assert (!cl->o && "internal error: object pointer present on multiple links");
+	    const SMsgLink* clol = casycom_find_destination (cl->h.src);
+	    assert (clol && "internal error: unsorted message links");
+	    if (clol->factory->ObjectDestroyed)		// notify of destruction, if requested
+		clol->factory->ObjectDestroyed (clol->o, ol->h.dest);
+	}
+    }
     // Call the destructor, if set.
     DEBUG_PRINTF ("[T] Destroying object %hu.%s\n", ol->h.dest, ol->h.interface->name);
     if (ol->factory->Destroy) {
@@ -294,17 +307,14 @@ static void casycom_destroy_object (SMsgLink* ol)
 	ol->o = NULL;
     } else
 	xfree (ol->o);	// Otherwise just free
-    // Erase all links to this object
+    ol->flags = 0;
+    // Erase all links from this object
+    const oid_t oid = ol->h.dest;
     for (size_t di = 0; di < _casycom_OMap.size; ++di) {
-	if (_casycom_OMap.d[di].h.dest == ol->h.dest) {		// Object calls the destroyed object
-	    assert (!_casycom_OMap.d[di].o && "internal error: object pointer present on multiple links");
-	    const SMsgLink* ml = casycom_find_destination (_casycom_OMap.d[di].h.src);
-	    if (ml && ml->factory->ObjectDestroyed)		// notify of destruction, if requested
-		ml->factory->ObjectDestroyed (ml->o, ol->h.dest);
-	} else if (_casycom_OMap.d[di].h.src != ol->h.dest)
-	    continue;
-	casycom_destroy_link_at (di);
-	di = (size_t)-1;	// recursion will modify OMap, so have to start over
+	if (_casycom_OMap.d[di].h.src == oid) {
+	    casycom_destroy_link_at (di);
+	    di = (size_t)-1;	// recursion will modify OMap, so have to start over
+	}
     }
 }
 
@@ -314,7 +324,7 @@ static const DTable* casycom_find_dtable (const SFactory* o, iid_t iid)
 	if ((*oi)->interface == iid)
 	    return *oi;
     if (o == _casycom_DefaultObject)
-	return o->dtable[0];
+	return _casycom_DefaultObject->dtable[0];
     return NULL;
 }
 
@@ -326,6 +336,22 @@ static const SFactory* casycom_find_factory (iid_t iid)
 	    return ot;
     }
     return _casycom_DefaultObject;
+}
+
+iid_t casycom_interface_by_name (const char* iname)
+{
+    for (size_t i = 0; i < _casycom_ObjectTable.size; ++i) {
+	const SFactory* f = _casycom_ObjectTable.d[i];
+	for (const DTable* const* di = (const DTable* const*) f->dtable; *di; ++di)
+	    if (0 == strcmp ((*di)->interface->name, iname))
+		return (*di)->interface;
+    }
+    if (_casycom_DefaultObject) {
+        iid_t defaultInterface = ((const DTable*)_casycom_DefaultObject->dtable[0])->interface;
+	if (0 == strcmp (defaultInterface->name, iname))
+	    return defaultInterface;
+    }
+    return NULL;
 }
 
 static SMsgLink* casycom_find_or_create_destination (const SMsg* msg)
@@ -360,8 +386,9 @@ void casycom_queue_message (SMsg* msg)
 	assert (dtable && "message forwarded to object that does not support its interface");
 	assert (casycom_link_for_proxy(&msg->h) < _casycom_OMap.size && "message sent through a deleted proxy; do not delete proxies in the destructor or in ObjectDeleted!");
 	assert (msg->imethod < casyiface_count_methods (msg->h.interface) && "invalid message destination method");
-	RStm is = casymsg_read(msg);
-	assert (msg->size == casymsg_validate_signature (casymsg_signature(msg), &is) && "message data does not match method signature");
+	assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+	assert ((!strchr(casymsg_signature(msg),'h') || msg->fdoffset != NO_FD_IN_MESSAGE) && "message signature requires a file descriptor in the message body, but none was written");
+	assert ((msg->fdoffset == NO_FD_IN_MESSAGE || (msg->fdoffset+4u <= msg->size && Align(msg->fdoffset,4) == msg->fdoffset)) && "you must use casymsg_write_fd to write a file descriptor to a message");
     #endif
     acquire_lock (&_casycom_OutputQueueLock);
     vector_push_back (&_casycom_OutputQueue, &msg);
@@ -417,6 +444,12 @@ void casycom_init (void)
 {
     DEBUG_PRINTF ("[I] Initializing casycom\n");
     atexit (casycom_reset);
+    int syslogopt = 0, syslogfac = LOG_USER;
+    if (isatty (STDIN_FILENO))
+	syslogopt = LOG_PERROR;
+    else
+	syslogfac = LOG_DAEMON;
+    openlog (NULL, syslogopt, syslogfac);
 }
 
 /// Resets the framework to its initial state
@@ -478,8 +511,8 @@ static void casycom_idle (void)
     // Destroy objects marked unused
     for (size_t i = 0; i < _casycom_OMap.size; ++i) {
 	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
-	    casycom_destroy_link_at (i);
-	    i = (size_t)-1;	// start over because casycom_destroy_link_at modifies OMap
+	    casycom_destroy_object (&_casycom_OMap.d[i]);
+	    i = (size_t)-1;	// start over because casycom_destroy_object modifies OMap
 	}
     }
     // Process timers and fd waits

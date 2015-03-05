@@ -4,54 +4,57 @@
 // This file is free software, distributed under the MIT License.
 
 #include "ping.h"
+#include <sys/socket.h>
 
 typedef struct _SApp {
+    PProxy	externp;
+    pid_t	serverPid;
     PProxy	pingp;
     unsigned	pingCount;
 } SApp;
 
 static void App_App_Init (SApp* app, unsigned argc UNUSED, const char* const* argv UNUSED)
 {
-    #ifndef NDEBUG
-	casycom_enable_debug_output();
-    #endif
+    casycom_enable_externs();
     // Communication between processes requires the use of the Extern
     // interface and auxillary factories for creating passthrough local
     // objects representing both the remote and local addressable objects.
-#if 0
+    app->externp = casycom_create_proxy (&i_Extern, oid_App);
     // To simplify this test program, use the same executable for both
     // client and server, forking, and communicating through a socket pair
     int socks[2];
-    if (0 > socketpair (PF_LOCAL, SOCK_STREAM| SOCK_NONBLOCK| SOCK_CLOEXEC, 0, socks)) {
-	perror ("socketpair");
-	return EXIT_FAILURE;
-    }
+    if (0 > socketpair (PF_LOCAL, SOCK_STREAM| SOCK_NONBLOCK| SOCK_CLOEXEC, 0, socks))
+	return casycom_error ("socketpair: %s", strerror(errno));
     int fr = fork();
-    if (fr < 0) {
-	perror ("fork");
-	return EXIT_FAILURE;
-    }
-#endif
-    int fr = 1;
+    if (fr < 0)
+	return casycom_error ("fork: %s", strerror(errno));
+    static const iid_t const eil_Ping[] = { &i_Ping, NULL };
     if (fr == 0) {	// Server side
-	// Export the ping interface on this side
-	static const SInterface* const eil_Ping[] = { &i_Ping, NULL };
-	casycom_register_externs (eil_Ping);
+	#ifndef NDEBUG
+	    casycom_enable_debug_output();
+	#endif
+	close (socks[0]);
+	// Export the ping interface on this side, and import nothing.
+	PExtern_Open (&app->externp, socks[1], EXTERN_SERVER, NULL, eil_Ping);
     } else {		// Client side
+	app->serverPid = fr;
+	close (socks[1]);
 	// List interfaces that can be accessed from outside.
-	// On the client side, no interfaces are exported.
-	casycom_register_externs (eil_None);
-	// To create a remote object, create a proxy object for it
-	// (This is exactly the same as accessing a local object)
-	app->pingp = casycom_create_proxy (&i_Ping, oid_App);
-	// ... which can then be accessed through the proxy methods.
-	PPing_Ping (&app->pingp, 1);
+	// On the client side, no interfaces are exported, but ping is imported.
+	PExtern_Open (&app->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
     }
 }
 
-static void App_ExternR_Connected (SApp* app UNUSED)
+static void App_ExternR_Connected (SApp* app)
 {
+    if (!app->serverPid)
+	return;
     printf ("Connected to server\n");
+    // To create a remote object, create a proxy object for it
+    // (This is exactly the same as accessing a local object)
+    app->pingp = casycom_create_proxy (&i_Ping, oid_App);
+    // ... which can then be accessed through the proxy methods.
+    PPing_Ping (&app->pingp, 1);
 }
 
 static void App_PingR_Ping (SApp* app, uint32_t u)

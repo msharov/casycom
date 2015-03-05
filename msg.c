@@ -126,11 +126,12 @@ static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
     return sz;
 }
 
-size_t casymsg_validate_signature (const char* sig, RStm* buf)
+size_t casymsg_validate_signature (const SMsg* msg)
 {
+    RStm is = casymsg_read(msg);
     size_t sz = 0;
-    while (*sig) {
-	size_t elsz = casymsg_validate_sigelement (&sig, buf);
+    for (const char* sig = casymsg_signature(msg); *sig;) {
+	size_t elsz = casymsg_validate_sigelement (&sig, &is);
 	if (!elsz)
 	    return 0;
 	sz += elsz;

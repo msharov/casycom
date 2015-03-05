@@ -8,46 +8,75 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 
-//{{{ Local prototypes -------------------------------------------------
+//{{{ COM interface ----------------------------------------------------
 
-struct _SExtern;
-
-static bool Extern_IsValidSocket (struct _SExtern* o);
-static void COM_COM_Message (void* vo, SMsg* msg);
-static void Extern_Extern_Close (struct _SExtern* o);
-static void Extern_QueueMessage (struct _SExtern* o, SMsg* msg);
-static void Extern_TimerR_Timer (struct _SExtern* o);
-static void Extern_Reading (struct _SExtern* o);
-static bool Extern_Writing (struct _SExtern* o);
+enum ECOMMethod {
+    method_COM_Error,
+    method_COM_Export,
+    method_COM_Delete,
+    method_COM_N
+};
+typedef void (*MFN_COM_Error)(void* vo, const char* error, const SMsg* msg);
+typedef void (*MFN_COM_Export)(void* vo, const char* elist, const SMsg* msg);
+typedef void (*MFN_COM_Delete)(void* vo, const SMsg* msg);
+typedef struct _DCOM {
+    iid_t		interface;
+    MFN_COM_Error	COM_Error;
+    MFN_COM_Export	COM_Export;
+    MFN_COM_Delete	COM_Delete;
+} DCOM;
 
 //}}}-------------------------------------------------------------------
 //{{{ PCOM
 
-void PCOM_Error (const PProxy* pp, const char* error)
+static void COMRelay_COM_Message (void* vo, SMsg* msg);
+
+//----------------------------------------------------------------------
+
+static SMsg* PCOM_ErrorMessage (const PProxy* pp, const char* error)
 {
     SMsg* msg = casymsg_begin (pp, method_COM_Error, casystm_size_string(error));
     WStm os = casymsg_write (msg);
     casystm_write_string (&os, error);
-    casymsg_end (msg);
+    assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+    return msg;
 }
 
-void PCOM_Export (const PProxy* pp, const char* elist)
+static SMsg* PCOM_ExportMessage (const PProxy* pp, const char* elist)
 {
     SMsg* msg = casymsg_begin (pp, method_COM_Export, casystm_size_string(elist));
     WStm os = casymsg_write (msg);
     casystm_write_string (&os, elist);
-    casymsg_end (msg);
+    assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+    return msg;
 }
 
-void PCOM_Delete (const PProxy* pp)
+static SMsg* PCOM_DeleteMessage (const PProxy* pp)
 {
-    casymsg_end (casymsg_begin (pp, method_COM_Delete, 0));
+    SMsg* msg = casymsg_begin (pp, method_COM_Delete, 0);
+    assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+    return msg;
 }
+
+//----------------------------------------------------------------------
+
+static void PCOM_CreateObject (const PProxy* pp)
+{
+    casymsg_end (casymsg_begin (pp, method_CreateObject, 0));
+}
+
+static void PCOM_Dispatch (const DCOM* dtable, void* o, SMsg* msg);
+
+static const SInterface i_COM = {
+    .name = "COM",
+    .dispatch = PCOM_Dispatch,
+    .method = { "Error\0s", "Export\0s", "Delete\0", NULL }
+};
 
 static void PCOM_Dispatch (const DCOM* dtable, void* o, SMsg* msg)
 {
     if (msg->h.interface != &i_COM)
-	COM_COM_Message (o, msg);
+	COMRelay_COM_Message (o, msg);
     else if (msg->imethod == method_COM_Error) {
 	RStm is = casymsg_read (msg);
 	const char* error = casystm_read_string (&is);
@@ -55,114 +84,26 @@ static void PCOM_Dispatch (const DCOM* dtable, void* o, SMsg* msg)
     } else if (msg->imethod == method_COM_Export) {
 	RStm is = casymsg_read (msg);
 	const char* elist = casystm_read_string (&is);
-	dtable->COM_Export (o, elist, msg);
+	if (dtable->COM_Export)
+	    dtable->COM_Export (o, elist, msg);
     } else if (msg->imethod == method_COM_Delete)
 	dtable->COM_Delete (o, msg);
     else
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
-const SInterface i_COM = {
-    .name = "COM",
-    .dispatch = PCOM_Dispatch,
-    .method = { "Error\0s", "Export\0s", "Delete\0", NULL }
-};
-
-//}}}-------------------------------------------------------------------
-//{{{ COM object
-
-typedef struct _SCOM {
-    PProxy	reply;
-} SCOM;
-
-//----------------------------------------------------------------------
-
-static void* COM_Create (const SMsg* msg)
-{
-    SCOM* o = (SCOM*) xalloc (sizeof(SCOM));
-    o->reply = casycom_create_reply_proxy (&i_COM, msg);
-    return o;
-}
-
-static void COM_Destroy (void* o)
-{
-    xfree (o);
-}
-
-static void COM_ObjectDestroyed (void* o, oid_t oid UNUSED)
-{
-    casycom_mark_unused (o);
-}
-
-static bool COM_Error (void* o, oid_t eoid UNUSED, const char* msg UNUSED)
-{
-    casycom_mark_unused (o);
-    return false;
-}
-
-//----------------------------------------------------------------------
-
-static void COM_COM_Error (SCOM* o, const char* error, SMsg* msg UNUSED)
-{
-    casycom_error ("%s", error);
-    casycom_forward_error (o->reply.src, o->reply.dest);
-}
-
-static void COM_COM_Export (SCOM* o UNUSED, const char* elist UNUSED, const SMsg* msg UNUSED)
-{
-}
-
-static void COM_COM_Delete (SCOM* o, const SMsg* msg UNUSED)
-{
-    casycom_mark_unused (o);
-}
-
-static void COM_COM_Message (void* vo, SMsg* msg)
-{
-    SCOM* o = (SCOM*) vo;
-    if (msg->h.src == o->reply.dest)
-	Extern_QueueMessage (NULL, msg);
-    else
-	casymsg_forward (&o->reply, msg);
-}
-
-//----------------------------------------------------------------------
-
-static const DCOM d_COM_COM = {
-    .interface = &i_COM,
-    DMETHOD (COM, COM_Error),
-    DMETHOD (COM, COM_Export),
-    DMETHOD (COM, COM_Delete)
-};
-const SFactory f_COM = {
-    .Create		= COM_Create,
-    .Destroy		= COM_Destroy,
-    .ObjectDestroyed	= COM_ObjectDestroyed,
-    .Error		= COM_Error,
-    .dtable		= { &d_COM_COM, NULL }
-};
-
-const SInterface* const eil_None[1] = { NULL };
-static const SInterface* const* _casycom_ExportedInterfaces = eil_None;
-
-// Registers the Extern server and the COM forwarder in addition to exported interfaces list
-void casycom_register_externs (const SInterface* const* eo)
-{
-    _casycom_ExportedInterfaces = eo;
-    casycom_register (&f_Extern);
-    casycom_register_default (&f_COM);
-}
-
 //}}}-------------------------------------------------------------------
 //{{{ PExtern
 
-void PExtern_Open (const PProxy* pp, int fd, enum EExternType atype)
+void PExtern_Open (const PProxy* pp, int fd, enum EExternType atype, const iid_t* importedInterfaces, const iid_t* exportedInterfaces)
 {
     assert (pp->interface == &i_Extern && "this proxy is for a different interface");
-    SMsg* msg = casymsg_begin (pp, method_Extern_Open, 8);
+    SMsg* msg = casymsg_begin (pp, method_Extern_Open, 4+4+8+8);
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
     casystm_write_uint32 (&os, atype);
+    casystm_write_uint64 (&os, (uintptr_t) importedInterfaces);
+    casystm_write_uint64 (&os, (uintptr_t) exportedInterfaces);
     casymsg_end (msg);
 }
 
@@ -178,9 +119,11 @@ static void PExtern_Dispatch (const DExtern* dtable, void* o, const SMsg* msg)
 	RStm is = casymsg_read (msg);
 	int fd = casystm_read_int32 (&is);
 	enum EExternType atype = casystm_read_uint32 (&is);
-	dtable->Extern_Open (o, fd, atype, msg);
+	const iid_t* importedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
+	const iid_t* exportedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
+	dtable->Extern_Open (o, fd, atype, importedInterfaces, exportedInterfaces);
     } else if (msg->imethod == method_Extern_Close)
-	dtable->Extern_Close (o, msg);
+	dtable->Extern_Close (o);
     else
 	casymsg_default_dispatch (dtable, o, msg);
 }
@@ -188,7 +131,7 @@ static void PExtern_Dispatch (const DExtern* dtable, void* o, const SMsg* msg)
 const SInterface i_Extern = {
     .name = "Extern",
     .dispatch = PExtern_Dispatch,
-    .method = { "Open\0iu", "Close\0", NULL }
+    .method = { "Open\0iuxx", "Close\0", NULL }
 };
 
 //}}}-------------------------------------------------------------------
@@ -216,61 +159,148 @@ const SInterface i_ExternR = {
 };
 
 //}}}-------------------------------------------------------------------
-//{{{ Extern object
+//{{{ Extern
+//----------------------------------------------------------------------
+//{{{2 Module data
 
-DECLARE_VECTOR_TYPE (ProxyVector, PProxy);
-DECLARE_VECTOR_TYPE (RObjVector, SCOM*);
-DECLARE_VECTOR_TYPE (SMsgVector, SMsg*);
+DECLARE_VECTOR_TYPE (MsgVector, SMsg*);
+DECLARE_VECTOR_TYPE (InterfaceVector, SInterface*);
+
+enum { MAX_MSG_HEADER_SIZE = UINT8_MAX-8 };
+
+enum {
+    extid_COM,
+    extid_ClientBase = extid_COM,		// Set these up to be equal to COMRelay nodeid on the client
+    extid_ServerBase = extid_ClientBase+32000,	// and nodeid + halfrange on the server (32000 is 0x7d00, mostly round number in both bases)
+    extid_ClientLast = extid_ServerBase-1,
+    extid_ServerLast = UINT16_MAX
+};
+
+typedef struct _SExtMsgHeader {
+    uint32_t	sz;		///< Message body size, aligned to c_MsgAlignment
+    uint16_t	extid;		///< Destination node iid
+    uint8_t	fdoffset;	///< Offset to file descriptor in message body, if passing
+    uint8_t	hsz;		///< Full size of header
+} SExtMsgHeader;
+
+typedef union _SExtMsgHeaderBuf {
+    SExtMsgHeader	h;
+    char		d [MAX_MSG_HEADER_SIZE];
+} SExtMsgHeaderBuf;
+
+typedef struct _COMConn {
+    PProxy	proxy;
+    uint16_t	extid;
+} COMConn;
+
+DECLARE_VECTOR_TYPE (COMConnVector, COMConn);
 
 typedef struct _SExtern {
-    PProxy	reply;
-    int		fd;
-    PProxy	timer;
-    bool	isClient;
-    bool	canPassFd;
-    RObjVector	outObjects;
-    ProxyVector	inObjects;
-    SMsgVector	outgoing;
-    SMsgVector	incoming;
+    PProxy		reply;
+    int			fd;
+    PProxy		timer;
+    bool		isClient;
+    bool		canPassFd;
+    COMConnVector	conns;
+    InterfaceVector	importedInterfaces;
+    MsgVector		outgoing;
+    uint32_t		outHWritten;
+    uint32_t		outBWritten;
+    uint32_t		inHRead;
+    uint32_t		inBRead;
+    SMsg*		inMsg;
+    const iid_t*	exportedInterfaces;
+    const iid_t*	allImportedInterfaces;
+    struct ucred	inCreds;
+    int			inLastFd;
+    SExtMsgHeaderBuf	inHBuf;
 } SExtern;
+
+DECLARE_VECTOR_TYPE (ExternsVector, SExtern*);
+static VECTOR (ExternsVector, _Extern_Externs);
+
+//----------------------------------------------------------------------
+
+static COMConn* Extern_COMConnByExtid (SExtern* o, uint16_t extid);
+static bool Extern_IsInterfaceExported (const SExtern* o, iid_t iid);
+static bool Extern_IsValidSocket (SExtern* o);
+static bool Extern_ValidateMessage (SExtern* o, SMsg* msg);
+static bool Extern_ValidateMessageHeader (const SExtern* o, const SExtMsgHeader* h);
+static bool Extern_Writing (SExtern* o);
+static iid_t Extern_LookupInMsgInterface (const SExtern* o);
+static uint32_t Extern_LookupInMsgMethod (const SExtern* o, const SMsg* msg);
+static void Extern_Extern_Close (SExtern* o);
+static void Extern_QueueIncomingMessage (SExtern* o, SMsg* msg);
+static void Extern_QueueOutgoingMessage (SExtern* o, SMsg* msg);
+static void Extern_Reading (SExtern* o);
+static void Extern_SetCredentialsPassing (SExtern* o, int enable);
+static void Extern_TimerR_Timer (SExtern* o);
+
+//}}}2------------------------------------------------------------------
+//{{{2 Interfaces
 
 static void* Extern_Create (const SMsg* msg)
 {
     SExtern* o = (SExtern*) xalloc (sizeof(SExtern));
+    vector_push_back (&_Extern_Externs, &o);
     o->reply = casycom_create_reply_proxy (&i_ExternR, msg);
     o->fd = -1;
+    o->inLastFd = -1;
     o->timer = casycom_create_proxy (&i_Timer, msg->h.dest);
-    VECTOR_MEMBER_INIT (RObjVector, o->outObjects);
-    VECTOR_MEMBER_INIT (ProxyVector, o->inObjects);
-    VECTOR_MEMBER_INIT (SMsgVector, o->outgoing);
-    VECTOR_MEMBER_INIT (SMsgVector, o->incoming);
+    VECTOR_MEMBER_INIT (COMConnVector, o->conns);
+    VECTOR_MEMBER_INIT (InterfaceVector, o->importedInterfaces);
+    VECTOR_MEMBER_INIT (MsgVector, o->outgoing);
     return o;
 }
 
 static void Extern_Destroy (void* vo)
 {
     SExtern* o = (SExtern*) vo;
-    if (o->fd >= 0)
+    if (o->fd >= 0) {
 	close (o->fd);
-    vector_deallocate (&o->outObjects);
-    vector_deallocate (&o->inObjects);
+	o->fd = -1;
+    }
+    if (o->inLastFd >= 0) {
+	close (o->inLastFd);
+	o->inLastFd = -1;
+    }
+    casymsg_free (o->inMsg);
     for (size_t i = 0; i < o->outgoing.size; ++i)
 	casymsg_free (o->outgoing.d[i]);
     vector_deallocate (&o->outgoing);
-    for (size_t i = 0; i < o->incoming.size; ++i)
-	casymsg_free (o->incoming.d[i]);
-    vector_deallocate (&o->incoming);
+    vector_deallocate (&o->importedInterfaces);
+    vector_deallocate (&o->conns);
+    for (size_t ei = 0; ei < _Extern_Externs.size; ++ei)
+	if (_Extern_Externs.d[ei] == o)
+	    vector_erase (&_Extern_Externs, ei--);
+    if (!_Extern_Externs.size)
+	vector_deallocate (&_Extern_Externs);
+    xfree (o);
 }
 
-static void Extern_Extern_Open (SExtern* o, int fd, enum EExternType atype)
+static void Extern_Extern_Open (SExtern* o, int fd, enum EExternType atype, const iid_t* importedInterfaces, const iid_t* exportedInterfaces)
 {
     o->fd = fd;
     o->isClient = atype == EXTERN_CLIENT;
+    o->allImportedInterfaces = importedInterfaces;	// o->importedInterfaces will be set when COM_Export message arrives
+    o->exportedInterfaces = exportedInterfaces;
     if (!Extern_IsValidSocket (o)) {
 	casycom_error ("incompatible socket type");
 	return Extern_Extern_Close (o);
     }
-    Extern_TimerR_Timer (o);
+    if (o->canPassFd)	// PF_LOCAL sockets can pass fds and credentials
+	Extern_SetCredentialsPassing (o, true);
+    // To complete the handshake, create the list of export interfaces
+    char exlist [256], *pexlist = &exlist[0];
+    memset (exlist, 0, sizeof(exlist));
+    for (const iid_t* ei = o->exportedInterfaces; ei && *ei; ++ei)
+	pexlist += sprintf (pexlist, "%s,", (*ei)->name);
+    assert (pexlist < &exlist[ArraySize(exlist)] && "too many exported interfaces");
+    pexlist[-1] = 0;	// Replace last comma
+    // Send the exported interfaces list in a COM_Export message
+    const PProxy comp = { .interface = &i_COM, .dest = o->reply.src, .src = o->reply.src };
+    Extern_QueueOutgoingMessage (o, PCOM_ExportMessage (&comp, exlist));
+    // Queueing will also initialize the fd timer
 }
 
 static void Extern_Extern_Close (SExtern* o)
@@ -282,16 +312,63 @@ static void Extern_Extern_Close (SExtern* o)
     casycom_mark_unused (o);
 }
 
-static void Extern_QueueMessage (SExtern* o, SMsg* msg)
+static SExtern* Extern_FindByInterface (iid_t iid)
 {
-    if (!o)
-	return;
-    SMsg* qm = casymsg_begin (&msg->h, msg->imethod, 0);
-    *qm = *msg;
-    msg->size = 0;
-    msg->body = NULL;
-    vector_push_back (&o->outgoing, qm);
+    for (size_t ei = 0; ei < _Extern_Externs.size; ++ei) {
+	SExtern* e = _Extern_Externs.d[ei];
+	for (size_t ii = 0; ii < e->importedInterfaces.size; ++ii)
+	    if (e->importedInterfaces.d[ii] == iid)
+		return e;
+    }
+    return NULL;
 }
+
+static SExtern* Extern_FindById (oid_t oid)
+{
+    for (size_t ei = 0; ei < _Extern_Externs.size; ++ei) {
+	SExtern* e = _Extern_Externs.d[ei];
+	for (size_t ii = 0; ii < e->conns.size; ++ii)
+	    if (e->conns.d[ii].proxy.dest == oid)
+		return e;
+    }
+    return NULL;
+}
+
+static void Extern_COM_Error (SExtern* o, const char* e)
+{
+    // Error arriving to extid_COM indicates an error in the Extern
+    // object on the other side, terminating the connection.
+    casycom_error ("%s", e);
+    Extern_Extern_Close (o);
+}
+
+static void Extern_COM_Export (SExtern* o, const char* ilist)
+{
+    // The export list arrives during the handshake and contains a
+    // comma-separated list of interfaces exported by the other side.
+    vector_clear (&o->importedInterfaces);	// Changing the list afterwards is also allowed.
+    for (const char* iname = ilist; iname && *iname; ++ilist) {
+	if (!*ilist || *ilist == ',') {
+	    // importedInterfaces contains iid_ts from allImportedInterfaces that are in ilist
+	    for (const iid_t* iii = o->allImportedInterfaces; iii && *iii; ++iii)
+		if (0 == strncmp ((*iii)->name, iname, ilist-iname))
+		    vector_push_back (&o->importedInterfaces, iii);
+	    iname = ilist;
+	}
+    }
+    // Now that the importedInterfaces list is filled, the handshake is complete
+    PExternR_Connected (&o->reply);
+}
+
+static const DCOM d_Extern_COM = {
+    .interface	= &i_COM,
+    DMETHOD (Extern, COM_Error),
+    DMETHOD (Extern, COM_Export),
+    .COM_Delete	= (MFN_COM_Delete) Extern_Extern_Close
+};
+
+//}}}2------------------------------------------------------------------
+//{{{2 Socket management
 
 static bool Extern_IsValidSocket (SExtern* o)
 {
@@ -299,9 +376,6 @@ static bool Extern_IsValidSocket (SExtern* o)
     int v;
     socklen_t l = sizeof(v);
     if (getsockopt (o->fd, SOL_SOCKET, SO_TYPE, &v, &l) < 0 || v != SOCK_STREAM)
-	return false;
-    // It must be a listening server socket
-    if (getsockopt (o->fd, SOL_SOCKET, SO_ACCEPTCONN, &v, &l) < 0 || v != true)
 	return false;
     // And it must match the family (PF_LOCAL or PF_INET)
     struct sockaddr_storage ss;
@@ -322,27 +396,356 @@ static bool Extern_IsValidSocket (SExtern* o)
     return true;
 }
 
-//----------------------------------------------------------------------
+static void Extern_SetCredentialsPassing (SExtern* o, int enable)
+{
+    if (o->fd < 0 || !o->canPassFd)
+	return;
+    if (0 > setsockopt (o->fd, SOL_SOCKET, SO_PASSCRED, &enable, sizeof(enable))) {
+	casycom_error ("setsockopt(SO_PASSCRED): %s", strerror(errno));
+	Extern_Extern_Close (o);
+    }
+}
 
 static void Extern_TimerR_Timer (SExtern* o)
 {
-    Extern_Reading (o);
-    unsigned tcmd = WATCH_READ;
-    if (Extern_Writing (o))
-	tcmd |= WATCH_WRITE;
-    PTimer_Watch (&o->timer, tcmd, o->fd, TIMER_NONE);
+    if (o->fd >= 0)
+	Extern_Reading (o);
+    enum EWatchCmd tcmd = WATCH_READ;
+    if (o->fd >= 0 && Extern_Writing (o))
+	tcmd = WATCH_RDWR;
+    if (o->fd >= 0)
+	PTimer_Watch (&o->timer, tcmd, o->fd, TIMER_NONE);
 }
 
-static void Extern_Reading (SExtern* o UNUSED)
+//}}}2------------------------------------------------------------------
+//{{{2 Reading
+
+static DEFINE_ALIAS_CAST(ucred_alias_cast, struct ucred)
+static DEFINE_ALIAS_CAST(int_alias_cast, int)
+
+static void Extern_Reading (SExtern* o)
 {
+    for (;;) {	// Read until EAGAIN
+	// Create iovecs for input
+	// There are three of them, representing the three parts of each
+	// message: the fixed header (2), the header strings (0), and the
+	// message body. The common case is to read the variable parts
+	// and the fixed header of the next message in each recvmsg call.
+	struct iovec iov[3];
+	memset (iov, 0, sizeof(iov));
+	if (o->inHRead >= sizeof(o->inHBuf.h)) {
+	    assert (o->inMsg && "the message must be created after the fixed header is read");
+	    iov[0].iov_base = &o->inHBuf.d[o->inHRead];
+	    iov[0].iov_len = o->inHBuf.h.hsz - o->inHRead;
+	    iov[1].iov_base = (char*) o->inMsg->body + o->inBRead;
+	    iov[1].iov_len = o->inMsg->size - o->inBRead;
+	    iov[2].iov_base = &o->inHBuf.h;
+	    iov[2].iov_len = sizeof(o->inHBuf.h);
+	} else {	// Fixed header partially read
+	    iov[2].iov_base = &o->inHBuf.d[o->inHRead];
+	    iov[2].iov_len = sizeof(o->inHBuf.h) - o->inHRead;
+	}
+	// Build struct for recvmsg
+	struct msghdr mh;
+	memset (&mh, 0, sizeof(mh));
+	mh.msg_iov = iov;
+	mh.msg_iovlen = ArraySize(iov);
+	// Ancillary space for fd and credentials
+	char cmsgbuf [CMSG_SPACE(sizeof(int)) + CMSG_SPACE(sizeof(struct ucred))];
+	memset (cmsgbuf, 0, sizeof(cmsgbuf));
+	mh.msg_control = cmsgbuf;
+	mh.msg_controllen = sizeof(cmsgbuf);
+	// Receive some data
+	int br = recvmsg (o->fd, &mh, 0);
+	if (br <= 0) {
+	    if (errno == EINTR)
+		continue;
+	    if (errno == EAGAIN)
+		return;
+	    if (br < 0)	// br == 0 when remote end closes. No error then, just need to close this end too.
+		casycom_error ("recvmsg: %s", strerror(errno));
+	    return Extern_Extern_Close (o);
+	}
+	DEBUG_PRINTF ("[X] Read %d bytes from socket %d\n", br, o->fd);
+	// Check if ancillary data was passed
+	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+	    if (cmsg->cmsg_type == SCM_CREDENTIALS) {
+		o->inCreds = *ucred_alias_cast (CMSG_DATA(cmsg));
+		Extern_SetCredentialsPassing (o, false);	// Checked when the socket is connected. Changing credentials (such as by passing the socket to another process) is not supported.
+		DEBUG_PRINTF ("[X] Received credentials: pid=%u,uid=%u,gid=%u\n", o->inCreds.pid, o->inCreds.uid, o->inCreds.gid);
+	    } else if (cmsg->cmsg_type == SCM_RIGHTS) {
+		if (o->inLastFd >= 0) {
+		    casycom_error ("multiple file descriptors received in one message");
+		    return Extern_Extern_Close (o);
+		}
+		o->inLastFd = *int_alias_cast (CMSG_DATA(cmsg));
+		DEBUG_PRINTF ("[X] Received fd %d\n", o->inLastFd);
+	    }
+	}
+	// Adjust read sizes
+	unsigned hbr = br;
+	if (hbr > iov[0].iov_len)
+	    hbr = iov[0].iov_len;
+	o->inHRead += hbr;
+	br -= hbr;
+	unsigned bbr = br;
+	if (bbr > iov[1].iov_len)
+	    bbr = iov[1].iov_len;
+	o->inBRead += bbr;
+	br -= bbr;
+	// Check if a message has been completed
+	if (o->inMsg && bbr == iov[1].iov_len) {
+	    if (DEBUG_MSG_TRACE) {
+		DEBUG_PRINTF ("[X] Message for extid %u of size %u completed:\n", o->inMsg->extid, o->inMsg->size);
+		hexdump (o->inHBuf.d, o->inHBuf.h.hsz);
+		hexdump (o->inMsg->body, o->inMsg->size);
+	    }
+	    assert (o->inBRead == o->inMsg->size);
+	    if (!Extern_ValidateMessage (o, o->inMsg)) {
+		casycom_error ("invalid message");
+		return Extern_Extern_Close (o);
+	    }
+	    // If it has, queue it and reset inMsg pointer
+	    Extern_QueueIncomingMessage (o, o->inMsg);
+	    o->inMsg = NULL;
+	    o->inHRead = br;
+	    o->inBRead = 0;
+	    // Clear variable header data
+	    memset (&o->inHBuf.d[sizeof(o->inHBuf.h)], 0, sizeof(o->inHBuf)-sizeof(o->inHBuf.h));
+	}
+	// Check for partial fixed header read
+	if (br) {
+	    assert (!o->inMsg && o->inHRead <= sizeof(o->inHBuf.h));
+	    o->inHRead += br;
+	}
+	// Check if a new message can be started
+	if (br && o->inHRead >= sizeof(o->inHBuf.h)) {
+	    assert (o->inHRead == sizeof(o->inHBuf.h) && !o->inMsg && "internal error: message data read, but message not complete");
+	    if (!Extern_ValidateMessageHeader (o, &o->inHBuf.h)) {
+		casycom_error ("invalid message");
+		return Extern_Extern_Close (o);
+	    }
+	    o->inMsg = casymsg_begin (&o->reply, method_CreateObject, o->inHBuf.h.sz);
+	    o->inMsg->extid = o->inHBuf.h.extid;
+	}
+    }
 }
 
-static bool Extern_Writing (SExtern* o UNUSED)
+//}}}2------------------------------------------------------------------
+//{{{2 Incoming message processing
+
+static bool Extern_ValidateMessageHeader (const SExtern* o UNUSED, const SExtMsgHeader* h)
 {
+    if (h->hsz & (MESSAGE_HEADER_ALIGNMENT-1))
+	return false;
+    if (h->sz & (MESSAGE_BODY_ALIGNMENT-1))
+	return false;
+    if (h->fdoffset != NO_FD_IN_MESSAGE && h->fdoffset+4u > h->sz)
+	return false;
+    return true;
+}
+
+static COMConn* Extern_COMConnByExtid (SExtern* o, uint16_t extid)
+{
+    for (size_t i = 0; i < o->conns.size; ++i)
+	if (o->conns.d[i].extid == extid)
+	    return &o->conns.d[i];
+    return NULL;
+}
+
+static bool Extern_ValidateMessage (SExtern* o, SMsg* msg)
+{
+    // The interface and method names are now read, so can get the local pointers for them
+    msg->h.interface = Extern_LookupInMsgInterface (o);
+    if (!msg->h.interface)
+	return false;
+    msg->imethod = Extern_LookupInMsgMethod (o, msg);
+    if (msg->imethod == method_Invalid)
+	return false;
+    // And validate the message body by signature
+    size_t vmsize = casymsg_validate_signature (msg);
+    if (Align (vmsize, MESSAGE_BODY_ALIGNMENT) != msg->size)	// Written size must be the aligned real size
+	return false;
+    msg->size = vmsize;	// The written size was its aligned value. The real value comes from the validator.
+    if (msg->fdoffset != NO_FD_IN_MESSAGE) {
+	*int_alias_cast((char*) msg->body + msg->fdoffset) = o->inLastFd;
+	o->inLastFd = -1;
+    }
+    if (msg->extid == extid_COM)
+	return msg->h.interface == &i_COM;
+    // Look up existing object for this extid
+    COMConn* conn = Extern_COMConnByExtid (o, msg->extid);
+    if (!conn) {		// If not present, then this is a request to create one
+	if (!Extern_IsInterfaceExported (o, msg->h.interface))
+	    return false;	// Prohibit creation of objects not on the export list
+	// Verify that the other end set the extid of new object in appropriate range
+	if (msg->extid >= extid_ClientLast || (o->isClient && (msg->extid < extid_ServerBase || msg->extid >= extid_ServerLast)))
+	    return false;
+	// Create the new connection object
+	conn = (COMConn*) vector_emplace_back (&o->conns);
+	conn->proxy = casycom_create_proxy (&i_COM, o->reply.src);
+	// The remote end sets the extid
+	conn->extid = msg->extid;
+	PCOM_CreateObject (&conn->proxy);
+    }
+    // Translate the extid into local addresses
+    msg->h.src = conn->proxy.src;
+    msg->h.dest = conn->proxy.dest;
+    return true;
+}
+
+static void Extern_QueueIncomingMessage (SExtern* o, SMsg* msg)
+{
+    if (msg->extid == extid_COM) {
+	PCOM_Dispatch (&d_Extern_COM, o, msg);
+	casymsg_free (msg);
+    } else
+	casymsg_end (msg);
+}
+
+static iid_t Extern_LookupInMsgInterface (const SExtern* o)
+{
+    const char* iname = &o->inHBuf.d[sizeof(o->inHBuf.h)];
+    assert (o->inHRead < MAX_MSG_HEADER_SIZE && o->inHRead >= sizeof(o->inHBuf.h)+5);
+    if (o->inHBuf.d[o->inHRead-1])	// Interface name and method must be nul terminated
+	return NULL;
+    return casycom_interface_by_name (iname);
+}
+
+static bool Extern_IsInterfaceExported (const SExtern* o, iid_t iid)
+{
+    if (!o->exportedInterfaces)
+	return false;
+    for (const SInterface* const* ii = o->exportedInterfaces; *ii; ++ii)
+	if (iid == *ii)
+	    return true;
     return false;
 }
 
-//----------------------------------------------------------------------
+static uint32_t Extern_LookupInMsgMethod (const SExtern* o, const SMsg* msg)
+{
+    const char* hend = &o->inHBuf.d[o->inHBuf.h.hsz];
+    const char* iname = &o->inHBuf.d[sizeof(o->inHBuf.h)];
+    const char* mname = strnext (iname);
+    if (mname >= hend)
+	return method_Invalid;
+    const char* msig = strnext (mname);
+    if (msig >= hend)
+	return method_Invalid;
+    const char* mend = strnext (msig);
+    if (mend > hend)
+	return method_Invalid;
+    size_t mnsize = mend - mname;
+    for (uint32_t mi = 0; msg->h.interface->method[mi]; ++mi) {
+	const char* m = msg->h.interface->method[mi];
+	size_t msz = strnext(strnext(m)) - m;
+	if (mnsize == msz && 0 == memcmp (m, mname, msz))
+	    return mi;
+    }
+    return method_Invalid;
+}
+
+//}}}2------------------------------------------------------------------
+//{{{2 Writing
+
+static void Extern_QueueOutgoingMessage (SExtern* o, SMsg* msg)
+{
+    if (msg->h.dest == o->reply.src)	// Messages to the Extern object itself have extid_COM
+	msg->extid = extid_COM;
+    else				// The others are oids with side-based offset
+	msg->extid = msg->h.dest + o->isClient ? extid_ClientBase : extid_ServerBase;
+    vector_push_back (&o->outgoing, &msg);
+    Extern_TimerR_Timer (o);
+}
+
+static bool Extern_Writing (SExtern* o)
+{
+    // Write all queued messages
+    while (o->outgoing.size) {
+	SMsg* msg = o->outgoing.d[0];
+	// Marshal message header
+	SExtMsgHeaderBuf hbuf;
+	memset (&hbuf, 0, sizeof(hbuf));
+	hbuf.h.sz = Align (msg->size, MESSAGE_BODY_ALIGNMENT);
+	hbuf.h.extid = msg->extid;
+	hbuf.h.fdoffset = msg->fdoffset;
+	char* phstr = &hbuf.d[sizeof(hbuf.h)];
+	const char* iname = msg->h.interface->name;
+	const char* mname = msg->h.interface->method [msg->imethod];
+	const char* msig = strnext (mname);
+	assert (sizeof(SExtMsgHeader)+strlen(iname)+1+strlen(mname)+1+strlen(msig)+1 <= MAX_MSG_HEADER_SIZE && "the interface and method names for this message are too long to export");
+	char* phend = stpcpy (stpcpy (stpcpy (phstr, iname)+1, mname)+1, msig)+1;
+	hbuf.h.hsz = sizeof(hbuf.h) + Align (phend - phstr, MESSAGE_HEADER_ALIGNMENT);
+	// Create iovecs for output
+	struct iovec iov[2];
+	memset (iov, 0, sizeof(iov));
+	if (hbuf.h.hsz > o->outHWritten) {
+	    iov[0].iov_base = &hbuf.d[o->outHWritten];
+	    iov[0].iov_len = hbuf.h.hsz - o->outHWritten;
+	}
+	if (hbuf.h.sz > o->outBWritten) {
+	    iov[1].iov_base = (char*) msg->body + o->outBWritten;
+	    iov[1].iov_len = hbuf.h.sz - o->outBWritten;
+	}
+	// Build outgoing struct for sendmsg
+	struct msghdr mh;
+	memset (&mh, 0, sizeof(mh));
+	mh.msg_iov = iov;
+	mh.msg_iovlen = ArraySize(iov);
+	// Add fd if being passed
+	char fdbuf [CMSG_SPACE(sizeof(int))];
+	int fdpassed = -1;
+	if (hbuf.h.fdoffset != NO_FD_IN_MESSAGE) {
+	    mh.msg_control = fdbuf;
+	    mh.msg_controllen = sizeof(fdbuf);
+	    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mh);
+	    cmsg->cmsg_len = sizeof(fdbuf);
+	    cmsg->cmsg_level = SOL_SOCKET;
+	    cmsg->cmsg_type = SCM_RIGHTS;
+	    fdpassed = *int_alias_cast((char*) msg->body + hbuf.h.fdoffset);
+	    *int_alias_cast(CMSG_DATA (cmsg)) = fdpassed;
+	}
+	// And try writing it all
+	int bw = sendmsg (o->fd, &mh, MSG_NOSIGNAL);
+	if (bw <= 0) {
+	    if (errno == EINTR)
+		continue;
+	    if (errno == EAGAIN)
+		return true;
+	    if (bw < 0)	// bw == 0 when remote end closes. No error then, just need to close this end too.
+		casycom_error ("sendmsg: %s", strerror(errno));
+	    Extern_Extern_Close (o);
+	    return false;
+	}
+	DEBUG_PRINTF ("[X] Wrote %d of %u bytes of message %s.%s to socket %d\n", bw, hbuf.h.hsz+hbuf.h.sz, msg->h.interface->name, msg->h.interface->method[msg->imethod], o->fd);
+	// Adjust written sizes
+	unsigned hbw = bw;
+	if (hbw > iov[0].iov_len)
+	    hbw = iov[0].iov_len;
+	o->outHWritten += hbw;
+	bw -= hbw;
+	o->outBWritten += bw;
+	assert (o->outBWritten <= hbuf.h.sz && "sendmsg wrote more than given");
+	// Close the fd once successfully passed
+	if (fdpassed >= 0) {
+	    close (fdpassed);
+	    fdpassed = -1;
+	    // And prevent it being passed more than once
+	    msg->fdoffset = NO_FD_IN_MESSAGE;
+	}
+	// Check if message has been fully written, and move to the next one if so
+	if (o->outBWritten >= hbuf.h.sz) {
+	    o->outHWritten = 0;
+	    o->outBWritten = 0;
+	    casymsg_free (o->outgoing.d[0]);
+	    vector_erase (&o->outgoing, 0);
+	}
+    }
+    return false;
+}
+
+//}}}2------------------------------------------------------------------
+//{{{2 Dtables and factory
 
 static const DExtern d_Extern_Extern = {
     .interface	= &i_Extern,
@@ -353,10 +756,156 @@ static const DTimerR d_Extern_TimerR = {
     .interface	= &i_TimerR,
     DMETHOD (Extern, TimerR_Timer)
 };
-const SFactory f_Extern = {
+static const SFactory f_Extern = {
     .Create	= Extern_Create,
     .Destroy	= Extern_Destroy,
     .dtable	= { &d_Extern_Extern, &d_Extern_TimerR, NULL }
 };
+//}}}2
+//}}}-------------------------------------------------------------------
+//{{{ COMRelay object
+
+typedef struct _COMRelay {
+    PProxy	localp;		///< Proxy to the local object
+    oid_t	externid;	///< oid of the extern connection
+    SExtern*	pExtern;	///< Outgoing connection
+} COMRelay;
+
+//----------------------------------------------------------------------
+
+static void* COMRelay_Create (const SMsg* msg)
+{
+    COMRelay* o = (COMRelay*) xalloc (sizeof(COMRelay));
+    // COM objects are created in one of two ways:
+    // 1. By message going out-of-process, via the default object mechanism
+    //    This results in msg->h.interface containing the imported interface.
+    //    The local object already exists, and its proxy is created here.
+    // 2. By message coming into the process, sent by Extern object. Extern
+    //    will explicitly create a COM intermediate by sending a COM message
+    //    with method_CreateObject. The message with the real interface will
+    //    follow immediately after, and localp will be created in COMRelay_COM_Message.
+    if (msg->h.interface != &i_COM) {
+	o->localp = casycom_create_reply_proxy (&i_COM, msg);
+	o->pExtern = Extern_FindByInterface (msg->h.interface);
+    } else
+	o->pExtern = Extern_FindById (msg->h.src);
+    if (o->pExtern)
+	o->externid = o->pExtern->reply.src;
+    return o;
+}
+
+static void COMRelay_COM_Message (void* vo, SMsg* msg)
+{
+    COMRelay* o = (COMRelay*) vo;
+    // The local object proxy is created in the constructor when the COM
+    // object is created by it. When the COM object is created by Extern
+    // for an exported interface, then the first message will create the
+    // appropriate object using its interface.
+    if (!o->localp.interface)
+	o->localp = casycom_create_proxy (msg->h.interface, msg->h.dest);
+    if (!o->pExtern)
+	return casycom_error ("could not find outgoing connection for interface %s", msg->h.interface->name);
+    if (msg->h.src != o->localp.dest)	// Incoming message - forward to local
+	return casymsg_forward (&o->localp, msg);
+    // Outgoing message - queue in extern
+    SMsg* qm = casymsg_begin (&msg->h, msg->imethod, 0);	// Need to create a new message owned here
+    *qm = *msg;
+    msg->size = 0;	// The body is now owned by qm
+    msg->body = NULL;
+    Extern_QueueOutgoingMessage (o->pExtern, qm);
+}
+
+static void COMRelay_Destroy (void* vo)
+{
+    COMRelay* o = (COMRelay*) vo;
+    // The relay is destroyed when:
+    // 1. The local object is destroyed. COM delete message is sent to the
+    //    remote side as notification.
+    // 2. The remote object is destroyed. The relay is marked unused in
+    //    COMRelay_COM_Delete and the extern pointer is reset to prevent
+    //    further messages to remote object. Here, no message is sent.
+    // 3. The Extern object is destroyed. pExtern is reset in
+    //    COMRelay_ObjectDestroyed, and no message is sent here.
+    if (o->pExtern) {
+	const PProxy failp = {	// The message comes from the real object
+	    .interface = &i_COM,
+	    .src = o->localp.dest,
+	    .dest = o->localp.src
+	};
+	Extern_QueueOutgoingMessage (o->pExtern, PCOM_DeleteMessage (&failp));
+    }
+    xfree (o);
+}
+
+static bool COMRelay_Error (void* vo, oid_t eoid, const char* msg)
+{
+    COMRelay* o = (COMRelay*) vo;
+    // An unhandled error in the local object is forwarded to the remote
+    // object. At this point it will be considered handled. The remote
+    // will decide whether to delete itself, which will propagate here.
+    if (o->pExtern && eoid == o->localp.dest) {
+	const PProxy failp = {	// The message comes from the real object
+	    .interface = &i_COM,
+	    .src = o->localp.dest,
+	    .dest = o->localp.src
+	};
+	Extern_QueueOutgoingMessage (o->pExtern, PCOM_ErrorMessage (&failp, msg));
+	return true;	// handled on the remote end.
+    }
+    // Errors occuring in the Extern object or elsewhere can not be handled
+    // by forwarding, so fall back to default handling.
+    return false;
+}
+
+static void COMRelay_ObjectDestroyed (void* vo, oid_t oid)
+{
+    COMRelay* o = (COMRelay*) vo;
+    if (oid == o->externid)	// Extern connection destroyed
+	o->pExtern = NULL;	// no further messages are to be sent there.
+    casycom_mark_unused (o);
+}
+
+//----------------------------------------------------------------------
+
+static void COMRelay_COM_Error (COMRelay* o, const char* error)
+{
+    // COM_Error is received for errors in the remote object. The remote
+    // object is destroyed and COM_Delete will shortly follow. Here, create
+    // a local error and send it to the local object.
+    casycom_error ("%s", error);
+    casycom_forward_error (o->localp.src, o->localp.dest);
+}
+
+static void COMRelay_COM_Delete (COMRelay* o)
+{
+    // COM_Delete indicates that the remote object has been destroyed.
+    o->pExtern = NULL;		// No further messages are to be sent.
+    casycom_mark_unused (o);	// The relay and local object are to be destroyed.
+}
+
+//----------------------------------------------------------------------
+
+static const DCOM d_COMRelay_COM = {
+    .interface = &i_COM,
+    DMETHOD (COMRelay, COM_Error),
+    DMETHOD (COMRelay, COM_Delete)
+};
+const SFactory f_COMRelay = {
+    .Create		= COMRelay_Create,
+    .Destroy		= COMRelay_Destroy,
+    .ObjectDestroyed	= COMRelay_ObjectDestroyed,
+    .Error		= COMRelay_Error,
+    .dtable		= { &d_COMRelay_COM, NULL }
+};
+
+//----------------------------------------------------------------------
+
+/// Enables extern connections.
+void casycom_enable_externs (void)
+{
+    casycom_register (&f_Timer);
+    casycom_register (&f_Extern);
+    casycom_register_default (&f_COMRelay);
+}
 
 //}}}-------------------------------------------------------------------

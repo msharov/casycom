@@ -28,7 +28,7 @@ static void Timer_Dispatch (const DTimer* dtable, void* o, const SMsg* msg)
 	enum EWatchCmd cmd = casystm_read_uint32 (&is);
 	int fd = casystm_read_int32 (&is);
 	casytimer_t timeoutms = casystm_read_uint64 (&is);
-	dtable->Timer_Watch (o, cmd, fd, timeoutms, msg);
+	dtable->Timer_Watch (o, cmd, fd, timeoutms);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }
@@ -89,7 +89,7 @@ void* Timer_Create (const SMsg* msg)
     o->nextfire = TIMER_NONE;
     o->cmd = WATCH_STOP;
     o->fd = -1;
-    vector_push_back (&_timer_WatchList, o);
+    vector_push_back (&_timer_WatchList, &o);
     return o;
 }
 
@@ -143,19 +143,20 @@ bool Timer_RunTimer (int toWait)
 	else
 	    DEBUG_PRINTF ("\n");
     }
-    if (0 > poll (fds, nFds, toWait))
-	casycom_error ("poll: %s", strerror(errno));
+    // And poll
+    poll (fds, nFds, toWait);
+    // Poll errors are checked for each fd with POLLERR. Other errors are ignored.
     // poll will exit when there are fds available or when the timer expires
     const casytimer_t now = Timer_NowMS();
     for (size_t i = 0, fdi = 0; i < _timer_WatchList.size; ++i) {
 	const STimer* we = _timer_WatchList.d[i];
-	bool bFired = we->nextfire <= now;	// First, check timer expiration
+	bool bFired = we->nextfire <= now;	// Check timer expiration
 	if (we->fd >= 0 && we->cmd != WATCH_STOP) {
-	    if (fds[fdi].revents & POLLERR) {	// Second, check for fd errors
-		casycom_error ("poll: invalid file descriptor");
-		casycom_forward_error (we->reply.dest, we->reply.src);
-	    } else if (fds[fdi].revents & we->cmd)	// Third, check the fd
+	    // Check if fd fired, or has errors. Errors will be detected when the client tries to use the fd.
+	    if (fds[fdi].revents & (POLLERR| we->cmd)) {
 		bFired = true;
+		PTimerR_Timer (&we->reply, we->fd);
+	    }
 	    ++fdi;
 	}
 	if (bFired)	// Once the timer or the fd fires, it is removed
@@ -175,12 +176,12 @@ casytimer_t Timer_NowMS (void)
 
 //----------------------------------------------------------------------
 
-static const DTimer d_TimerObject_Timer = {
+static const DTimer d_Timer_Timer = {
     .interface = &i_Timer,
     DMETHOD (Timer, Timer_Watch)
 };
-const SFactory f_TimerObject = {
+const SFactory f_Timer = {
     .Create	= Timer_Create,
     .Destroy	= Timer_Destroy,
-    .dtable	= { &d_TimerObject_Timer, NULL }
+    .dtable	= { &d_Timer_Timer, NULL }
 };

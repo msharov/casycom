@@ -28,6 +28,7 @@ typedef void* (pfn_object_init)(const SMsg* msg);
 
 void	casycom_register (const SFactory* o) noexcept NONNULL();
 void	casycom_register_default (const SFactory* o) noexcept;
+iid_t	casycom_interface_by_name (const char* iname) noexcept NONNULL();
 PProxy	casycom_create_proxy (iid_t iid, oid_t src) noexcept;
 PProxy	casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest) noexcept;
 void	casycom_destroy_proxy (PProxy* pp) noexcept NONNULL();

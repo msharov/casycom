@@ -49,5 +49,5 @@ static void PApp_Dispatch (const DApp* dtable, void* o, const SMsg* msg)
 const SInterface i_App = {
     .dispatch = PApp_Dispatch,
     .name = "App",
-    .method = { "Init\0xu", "Signal\0u", NULL }
+    .method = { "Init\0xu", "Signal\0uui", NULL }
 };

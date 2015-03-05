@@ -40,8 +40,10 @@ typedef struct _SMsg {
 
 enum {
     NO_FD_IN_MESSAGE = UINT8_MAX,
-    MESSAGE_BODY_ALIGNMENT = 8,
-    method_CreateObject = UINT32_MAX
+    MESSAGE_HEADER_ALIGNMENT = 8,
+    MESSAGE_BODY_ALIGNMENT = MESSAGE_HEADER_ALIGNMENT,
+    method_Invalid = ((uint32_t)-2),
+    method_CreateObject = ((uint32_t)-1)
 };
 
 typedef struct _DTable {
@@ -63,7 +65,7 @@ void	casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body) noexce
 void	casymsg_forward (const PProxy* pp, SMsg* msg) noexcept NONNULL();
 void	casycom_queue_message (SMsg* msg) noexcept NONNULL(); ///< In main.c
 uint32_t casyiface_count_methods (iid_t iid) noexcept;
-size_t	casymsg_validate_signature (const char* sig, RStm* buf) noexcept NONNULL();
+size_t	casymsg_validate_signature (const SMsg* msg) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {
@@ -87,7 +89,7 @@ static inline void casymsg_end (SMsg* msg)
     { casycom_queue_message (msg); }
 static inline void casymsg_write_fd (SMsg* msg, WStm* os, int fd) {
     size_t fdoffset = os->_p - (char*) msg->body;
-    assert (fdoffset < UINT8_MAX && "file descriptors must be passed in the first 252 bytes of the message");
+    assert (fdoffset != NO_FD_IN_MESSAGE && "file descriptors must be passed in the first 252 bytes of the message");
     msg->fdoffset = fdoffset;
     casystm_write_int32 (os, fd);
 }

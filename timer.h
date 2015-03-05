@@ -36,7 +36,7 @@ enum ETimerMethod {
     method_Timer_Watch,
     method_Timer_N
 };
-typedef void (*MFN_Timer_Watch)(void* vo, enum EWatchCmd cmd, int fd, casytimer_t timer, const SMsg* msg);
+typedef void (*MFN_Timer_Watch)(void* vo, enum EWatchCmd cmd, int fd, casytimer_t timer);
 typedef struct _DTimer {
     iid_t		interface;
     MFN_Timer_Watch	Timer_Watch;
@@ -69,7 +69,7 @@ void PTimerR_Timer (const PProxy* pp, int fd);
 
 //----------------------------------------------------------------------
 
-extern const SFactory f_TimerObject;
+extern const SFactory f_Timer;
 
 bool		Timer_RunTimer (int toWait) noexcept;
 casytimer_t	Timer_NowMS (void) noexcept;
