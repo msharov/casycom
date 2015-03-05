@@ -458,12 +458,14 @@ static void Extern_Reading (SExtern* o)
 	// Receive some data
 	int br = recvmsg (o->fd, &mh, 0);
 	if (br <= 0) {
-	    if (errno == EINTR)
-		continue;
-	    if (errno == EAGAIN)
-		return;
-	    if (br < 0)	// br == 0 when remote end closes. No error then, just need to close this end too.
+	    if (br < 0) {	// br == 0 when remote end closes. No error then, just need to close this end too.
+		if (errno == EINTR)
+		    continue;
+		if (errno == EAGAIN)
+		    return;
 		casycom_error ("recvmsg: %s", strerror(errno));
+	    } else
+		DEBUG_PRINTF ("[X] %hu.Extern: rsocket %d closed by the other end\n", o->reply.src, o->fd);
 	    return Extern_Extern_Close (o);
 	}
 	DEBUG_PRINTF ("[X] Read %d bytes from socket %d\n", br, o->fd);
@@ -553,40 +555,62 @@ static COMConn* Extern_COMConnByExtid (SExtern* o, uint16_t extid)
     return NULL;
 }
 
+static COMConn* Extern_COMConnByOid (SExtern* o, oid_t oid)
+{
+    for (size_t i = 0; i < o->conns.size; ++i)
+	if (o->conns.d[i].proxy.dest == oid)
+	    return &o->conns.d[i];
+    return NULL;
+}
+
 static bool Extern_ValidateMessage (SExtern* o, SMsg* msg)
 {
     // The interface and method names are now read, so can get the local pointers for them
     msg->h.interface = Extern_LookupInMsgInterface (o);
-    if (!msg->h.interface)
+    if (!msg->h.interface) {
+	DEBUG_PRINTF ("[X] Unable to find the message interface\n");
 	return false;
+    }
     msg->imethod = Extern_LookupInMsgMethod (o, msg);
-    if (msg->imethod == method_Invalid)
+    if (msg->imethod == method_Invalid) {
+	DEBUG_PRINTF ("[X] Invalid method index in message\n");
 	return false;
+    }
     // And validate the message body by signature
     size_t vmsize = casymsg_validate_signature (msg);
-    if (Align (vmsize, MESSAGE_BODY_ALIGNMENT) != msg->size)	// Written size must be the aligned real size
+    if (Align (vmsize, MESSAGE_BODY_ALIGNMENT) != msg->size) {	// Written size must be the aligned real size
+	DEBUG_PRINTF ("[X] Message body fails signature verification\n");
 	return false;
+    }
     msg->size = vmsize;	// The written size was its aligned value. The real value comes from the validator.
     if (msg->fdoffset != NO_FD_IN_MESSAGE) {
 	*int_alias_cast((char*) msg->body + msg->fdoffset) = o->inLastFd;
 	o->inLastFd = -1;
     }
-    if (msg->extid == extid_COM)
+    if (msg->extid == extid_COM) {
+	if (msg->h.interface != &i_COM)
+	    DEBUG_PRINTF ("[X] extid_COM may only be used for the COM interface\n");
 	return msg->h.interface == &i_COM;
+    }
     // Look up existing object for this extid
     COMConn* conn = Extern_COMConnByExtid (o, msg->extid);
     if (!conn) {		// If not present, then this is a request to create one
-	if (!Extern_IsInterfaceExported (o, msg->h.interface))
+	if (!Extern_IsInterfaceExported (o, msg->h.interface)) {
+	    DEBUG_PRINTF ("[X] Message addressed to interface not on export list\n");
 	    return false;	// Prohibit creation of objects not on the export list
+	}
 	// Verify that the other end set the extid of new object in appropriate range
-	if (msg->extid >= extid_ClientLast || (o->isClient && (msg->extid < extid_ServerBase || msg->extid >= extid_ServerLast)))
+	if (msg->extid >= extid_ClientLast || (o->isClient && (msg->extid < extid_ServerBase || msg->extid >= extid_ServerLast))) {
+	    DEBUG_PRINTF ("[X] Invalid extid in message\n");
 	    return false;
+	}
 	// Create the new connection object
 	conn = (COMConn*) vector_emplace_back (&o->conns);
 	conn->proxy = casycom_create_proxy (&i_COM, o->reply.src);
 	// The remote end sets the extid
 	conn->extid = msg->extid;
 	PCOM_CreateObject (&conn->proxy);
+	DEBUG_PRINTF ("[X] New incoming connection %hu -> %hu.%s, extid %hu\n", conn->proxy.src, conn->proxy.dest, msg->h.interface->name, conn->extid);
     }
     // Translate the extid into local addresses
     msg->h.src = conn->proxy.src;
@@ -599,8 +623,10 @@ static void Extern_QueueIncomingMessage (SExtern* o, SMsg* msg)
     if (msg->extid == extid_COM) {
 	PCOM_Dispatch (&d_Extern_COM, o, msg);
 	casymsg_free (msg);
-    } else
+    } else {
+	DEBUG_PRINTF ("[X] Queueing incoming message[%u] %hu -> %hu.%s.%s\n", msg->size, msg->h.src, msg->h.dest, casymsg_interface_name(msg), casymsg_method_name(msg));
 	casymsg_end (msg);
+    }
 }
 
 static iid_t Extern_LookupInMsgInterface (const SExtern* o)
@@ -652,8 +678,18 @@ static void Extern_QueueOutgoingMessage (SExtern* o, SMsg* msg)
 {
     if (msg->h.dest == o->reply.src)	// Messages to the Extern object itself have extid_COM
 	msg->extid = extid_COM;
-    else				// The others are oids with side-based offset
-	msg->extid = msg->h.dest + o->isClient ? extid_ClientBase : extid_ServerBase;
+    else {
+	COMConn* conn = Extern_COMConnByOid (o, msg->h.dest);
+	if (!conn) {
+	    conn = vector_emplace_back (&o->conns);
+	    // Create the reply proxy from Extern to the COMRelay
+	    conn->proxy = casycom_create_proxy_to (&i_COM, o->reply.src, msg->h.dest);
+	    // Extids are assigned from oid with side-based offset
+	    conn->extid = msg->h.dest + (o->isClient ? extid_ClientBase : extid_ServerBase);
+	    DEBUG_PRINTF ("[X] New outgoing connection %hu -> %hu.%s, extid %hu\n", msg->h.src, msg->h.dest, msg->h.interface->name, conn->extid);
+	}
+	msg->extid = conn->extid;
+    }
     vector_push_back (&o->outgoing, &msg);
     Extern_TimerR_Timer (o);
 }
@@ -708,16 +744,18 @@ static bool Extern_Writing (SExtern* o)
 	// And try writing it all
 	int bw = sendmsg (o->fd, &mh, MSG_NOSIGNAL);
 	if (bw <= 0) {
-	    if (errno == EINTR)
-		continue;
-	    if (errno == EAGAIN)
-		return true;
-	    if (bw < 0)	// bw == 0 when remote end closes. No error then, just need to close this end too.
+	    if (bw < 0) {	// bw == 0 when remote end closes. No error then, just need to close this end too.
+		if (errno == EINTR)
+		    continue;
+		if (errno == EAGAIN)
+		    return true;
 		casycom_error ("sendmsg: %s", strerror(errno));
+	    } else
+		DEBUG_PRINTF ("[X] %hu.Extern: wsocket %d closed by the other end\n", o->reply.src, o->fd);
 	    Extern_Extern_Close (o);
 	    return false;
 	}
-	DEBUG_PRINTF ("[X] Wrote %d of %u bytes of message %s.%s to socket %d\n", bw, hbuf.h.hsz+hbuf.h.sz, msg->h.interface->name, msg->h.interface->method[msg->imethod], o->fd);
+	DEBUG_PRINTF ("[X] Wrote %d of %u bytes of message %s.%s to socket %d\n", bw, hbuf.h.hsz+hbuf.h.sz, casymsg_interface_name(msg), casymsg_method_name(msg), o->fd);
 	// Adjust written sizes
 	unsigned hbw = bw;
 	if (hbw > iov[0].iov_len)
@@ -788,7 +826,7 @@ static void* COMRelay_Create (const SMsg* msg)
 	o->localp = casycom_create_reply_proxy (&i_COM, msg);
 	o->pExtern = Extern_FindByInterface (msg->h.interface);
     } else
-	o->pExtern = Extern_FindById (msg->h.src);
+	o->pExtern = Extern_FindById (msg->h.dest);
     if (o->pExtern)
 	o->externid = o->pExtern->reply.src;
     return o;

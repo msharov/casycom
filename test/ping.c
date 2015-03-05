@@ -77,61 +77,61 @@ const SInterface i_PingR = {
 //{{{ Ping server object
 
 // The ping server object data
-typedef struct _SPingObject {
+typedef struct _SPing {
     PProxy	reply;
     unsigned	nPings;
-} SPingObject;
+} SPing;
 
 // The constructor for the object, called when the first message sent
 // to it arrives. It must return a valid object pointer. Here, a new
 // object is allocated and returned. (xalloc will zero the memory)
 // msg->dest is the new object's oid, which may be saved if needed.
-static void* PingObject_Create (const SMsg* msg)
+static void* Ping_Create (const SMsg* msg)
 {
-    printf ("Created PingObject %u\n", msg->h.dest);
-    SPingObject* po = (SPingObject*) xalloc (sizeof(SPingObject));
+    printf ("Created Ping %u\n", msg->h.dest);
+    SPing* po = (SPing*) xalloc (sizeof(SPing));
     po->reply = casycom_create_reply_proxy (&i_PingR, msg);
     return po;
 }
 
 // Object destructor. If defined, must free the object.
-static void PingObject_Destroy (void* o)
+static void Ping_Destroy (void* o)
 {
-    printf ("Destroy PingObject\n");
+    printf ("Destroy Ping\n");
     xfree (o);
 }
 
 // Method implementing the Ping.Ping interface method
-static void PingObject_Ping_Ping (SPingObject* o, uint32_t u)
+static void Ping_Ping_Ping (SPing* o, uint32_t u)
 {
     printf ("Ping: %u, %u total\n", u, ++o->nPings);
     PPingR_Ping (&o->reply, u);
 }
 
-// The PingObject DTable for the Ping interface
-static const DPing d_PingObject_Ping = {
+// The Ping DTable for the Ping interface
+static const DPing d_Ping_Ping = {
     .interface = &i_Ping,
     // There are two ways to define the methods. First, you could
     // use the same signature as defined in DPing, which requires
     // the passed in object to be a void* (because when the interface
     // is declared, this server object is not and can not be unknown)
-    // .Ping_Ping = PingObject_Ping_Ping
+    // .Ping_Ping = Ping_Ping_Ping
     // You then have to cast that to the object type in each method.
     // The second way is to define the method with the typed object
     // pointer and use the DMETHOD macro to cast it in the DTable.
     // The advantage is not having to cast in the method, the
     // disadvantage is that the method's signature is not checked.
-    DMETHOD (PingObject, Ping_Ping)
+    DMETHOD (Ping, Ping_Ping)
 };
 
 // SFactory defines the methods required to create objects of this
 // type. The framework will do so when receiving a  message addressed
 // to an interface listed in the .dtable array.
-const SFactory f_PingObject = {
-    .Create = PingObject_Create,
-    .Destroy = PingObject_Destroy,
+const SFactory f_Ping = {
+    .Create = Ping_Create,
+    .Destroy = Ping_Destroy,
     // Lists each interface implemented by this object
-    .dtable = { &d_PingObject_Ping, NULL }
+    .dtable = { &d_Ping_Ping, NULL }
 };
 
 //}}}-------------------------------------------------------------------

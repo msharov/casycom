@@ -30,10 +30,8 @@ static void App_App_Init (SApp* app, unsigned argc UNUSED, const char* const* ar
 	return casycom_error ("fork: %s", strerror(errno));
     static const iid_t const eil_Ping[] = { &i_Ping, NULL };
     if (fr == 0) {	// Server side
-	#ifndef NDEBUG
-	    casycom_enable_debug_output();
-	#endif
 	close (socks[0]);
+	casycom_register (&f_Ping);
 	// Export the ping interface on this side, and import nothing.
 	PExtern_Open (&app->externp, socks[1], EXTERN_SERVER, NULL, eil_Ping);
     } else {		// Client side

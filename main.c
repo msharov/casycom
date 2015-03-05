@@ -366,7 +366,6 @@ static SMsgLink* casycom_find_or_create_destination (const SMsg* msg)
 	    break;
 	no = casycom_create_link_object (ml, msg); // Create the object, if needed
     }
-    assert (casycom_link_for_proxy(&msg->h) < _casycom_OMap.size && "message sent through a deleted proxy; do not delete proxies in the destructor or in ObjectDeleted!");
     return ml;
 }
 
@@ -385,10 +384,13 @@ void casycom_queue_message (SMsg* msg)
 	const DTable* dtable = casycom_find_dtable (destl->factory, msg->h.interface);
 	assert (dtable && "message forwarded to object that does not support its interface");
 	assert (casycom_link_for_proxy(&msg->h) < _casycom_OMap.size && "message sent through a deleted proxy; do not delete proxies in the destructor or in ObjectDeleted!");
-	assert (msg->imethod < casyiface_count_methods (msg->h.interface) && "invalid message destination method");
-	assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
-	assert ((!strchr(casymsg_signature(msg),'h') || msg->fdoffset != NO_FD_IN_MESSAGE) && "message signature requires a file descriptor in the message body, but none was written");
-	assert ((msg->fdoffset == NO_FD_IN_MESSAGE || (msg->fdoffset+4u <= msg->size && Align(msg->fdoffset,4) == msg->fdoffset)) && "you must use casymsg_write_fd to write a file descriptor to a message");
+	if (msg->imethod != method_CreateObject) {
+	    assert (msg->imethod < casyiface_count_methods (msg->h.interface) && "invalid message destination method");
+	    assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+	    assert ((!strchr(casymsg_signature(msg),'h') || msg->fdoffset != NO_FD_IN_MESSAGE) && "message signature requires a file descriptor in the message body, but none was written");
+	    assert ((msg->fdoffset == NO_FD_IN_MESSAGE || (msg->fdoffset+4u <= msg->size && Align(msg->fdoffset,4) == msg->fdoffset)) && "you must use casymsg_write_fd to write a file descriptor to a message");
+	} else
+	    assert (!msg->size && msg->fdoffset == NO_FD_IN_MESSAGE && "invalid CreateObject message");
     #endif
     acquire_lock (&_casycom_OutputQueueLock);
     vector_push_back (&_casycom_OutputQueue, &msg);
@@ -432,7 +434,7 @@ void casycom_debug_message_dump (const SMsg* msg)
 	printf ("[T] NULL Message\n");
 	return;
     }
-    printf ("[T] Message[%u] %hu -> %hu.%s.%s\n", msg->size, msg->h.src, msg->h.dest, msg->h.interface->name, msg->h.interface->method[msg->imethod]);
+    printf ("[T] Message[%u] %hu -> %hu.%s.%s\n", msg->size, msg->h.src, msg->h.dest, casymsg_interface_name(msg), casymsg_method_name(msg));
     hexdump (msg->body, msg->size);
 }
 

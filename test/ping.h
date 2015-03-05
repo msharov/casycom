@@ -54,4 +54,4 @@ extern const SInterface i_PingR;
 
 //----------------------------------------------------------------------
 // This is the server object, to pass to casycom_register
-extern const SFactory f_PingObject;
+extern const SFactory f_Ping;

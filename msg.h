@@ -71,9 +71,10 @@ size_t	casymsg_validate_signature (const SMsg* msg) noexcept NONNULL();
 namespace {
 #endif
 
+static inline const char* casymsg_interface_name (const SMsg* msg) { return msg->h.interface->name; }
 static inline const char* casymsg_method_name (const SMsg* msg) {
-    assert (casyiface_count_methods(msg->h.interface) > msg->imethod && "invalid method index in message");
-    return msg->h.interface->method[msg->imethod];
+    assert ((msg->imethod == method_CreateObject || casyiface_count_methods(msg->h.interface) > msg->imethod) && "invalid method index in message");
+    return msg->h.interface->method[(int32_t)msg->imethod];
 }
 static inline const char* casymsg_signature (const SMsg* msg) {
     const char* mname = casymsg_method_name (msg);

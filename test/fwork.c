@@ -16,7 +16,7 @@ static void* App_Create (const SMsg* msg UNUSED)
     static SApp app = {{NULL,0,0},0};
     if (!app.pingp.interface) {	// use the proxy to detect already initialized case
 	// Each addressable object must be registered
-	casycom_register (&f_PingObject);
+	casycom_register (&f_Ping);
 	// To create an object, create a proxy object for it
 	app.pingp = casycom_create_proxy (&i_Ping, oid_App);
     }
