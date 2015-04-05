@@ -6,7 +6,8 @@
 #include "xcom.h"
 #include "timer.h"
 #include <fcntl.h>
-#include <sys/socket.h>
+#include <sys/un.h>
+#include <paths.h>
 
 //{{{ COM interface ----------------------------------------------------
 
@@ -133,6 +134,65 @@ const SInterface i_Extern = {
     .dispatch = PExtern_Dispatch,
     .method = { "Open\0iuxx", "Close\0", NULL }
 };
+
+//}}}-------------------------------------------------------------------
+//{{{ PExtern_Connect
+
+int PExtern_Connect (const PProxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* importedInterfaces)
+{
+    int fd = socket (addr->sa_family, SOCK_STREAM| SOCK_NONBLOCK| SOCK_CLOEXEC, IPPROTO_IP);
+    if (fd < 0)
+	return fd;
+    if (0 > connect (fd, addr, addrlen) && errno != EINPROGRESS && errno != EINTR) {
+	DEBUG_PRINTF ("[E] Failed to connect to socket: %s\n", strerror(errno));
+	close (fd);
+	return -1;
+    }
+    PExtern_Open (pp, fd, EXTERN_CLIENT, importedInterfaces, NULL);
+    return fd;
+}
+
+/// Create local socket with given path
+int PExtern_ConnectLocal (const PProxy* pp, const char* path, const iid_t* importedInterfaces)
+{
+    struct sockaddr_un addr;
+    addr.sun_family = PF_LOCAL;
+    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s", path)) {
+	errno = ENAMETOOLONG;
+	return -1;
+    }
+    DEBUG_PRINTF ("[X] Connecting to socket %s\n", addr.sun_path);
+    return PExtern_Connect (pp, (const struct sockaddr*) &addr, sizeof(addr), importedInterfaces);
+}
+
+/// Create local socket of the given name in the system standard location for such
+int PExtern_ConnectSystemLocal (const PProxy* pp, const char* sockname, const iid_t* importedInterfaces)
+{
+    struct sockaddr_un addr;
+    addr.sun_family = PF_LOCAL;
+    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), _PATH_VARRUN "%s", sockname)) {
+	errno = ENAMETOOLONG;
+	return -1;
+    }
+    DEBUG_PRINTF ("[X] Connecting to socket %s\n", addr.sun_path);
+    return PExtern_Connect (pp, (const struct sockaddr*) &addr, sizeof(addr), importedInterfaces);
+}
+
+/// Create local socket of the given name in the user standard location for such
+int PExtern_ConnectUserLocal (const PProxy* pp, const char* sockname, const iid_t* importedInterfaces)
+{
+    struct sockaddr_un addr;
+    addr.sun_family = PF_LOCAL;
+    const char* runtimeDir = getenv ("XDG_RUNTIME_DIR");
+    if (!runtimeDir)
+	runtimeDir = _PATH_TMP;
+    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s/%s", runtimeDir, sockname)) {
+	errno = ENAMETOOLONG;
+	return -1;
+    }
+    DEBUG_PRINTF ("[X] Connecting to socket %s\n", addr.sun_path);
+    return PExtern_Connect (pp, (const struct sockaddr*) &addr, sizeof(addr), importedInterfaces);
+}
 
 //}}}-------------------------------------------------------------------
 //{{{ PExternR

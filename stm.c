@@ -13,18 +13,16 @@ const char* casystm_read_string (RStm* s)
 	--v;
     casystm_read_skip (s, vlen);
     casystm_read_align (s, sizeof(vlen));
-    assert (strnlen(v,s->_p-v) == vlen-1 && "unterminated string in stream");
+    assert (strnlen(v,s->_p-v) == vlen-!!vlen && "unterminated string in stream");
     return v;
 }
 
 void casystm_write_string (WStm* s, const char* v)
 {
     uint32_t vlen = 0;
-    if (v)
-	vlen = strlen(v)+1;
+    if (v && (vlen = strlen(v)))
+	++vlen;
     casystm_write_uint32 (s, vlen);
-    if (v) {
-	casystm_write_data (s, v, vlen);
-	casystm_write_align (s, sizeof(vlen));
-    }
+    casystm_write_data (s, v, vlen);
+    casystm_write_align (s, sizeof(vlen));
 }

@@ -64,11 +64,6 @@ static inline void casycom_enable_debug_output (void) {}
 static inline void casycom_disable_debug_output (void) {}
 #endif
 
-#define CASYCOM_DEFINE_SINGLETON(name)			\
-static void* name##_Create (const SMsg* msg UNUSED)	\
-    { static S##name o; memset (&o,0,sizeof(o)); return &o; }\
-static void name##_Destroy (void* p UNUSED) {}
-
 #ifdef __cplusplus
 } // namespace
 } // extern "C"

@@ -153,14 +153,14 @@ bool Timer_RunTimer (int toWait)
 	bool bFired = we->nextfire <= now;	// Check timer expiration
 	if (we->fd >= 0 && we->cmd != WATCH_STOP) {
 	    // Check if fd fired, or has errors. Errors will be detected when the client tries to use the fd.
-	    if (fds[fdi].revents & (POLLERR| we->cmd)) {
+	    if (fds[fdi].revents & (POLLERR| we->cmd))
 		bFired = true;
-		PTimerR_Timer (&we->reply, we->fd);
-	    }
 	    ++fdi;
 	}
-	if (bFired)	// Once the timer or the fd fires, it is removed
+	if (bFired) {	// Once the timer or the fd fires, it is removed
+	    PTimerR_Timer (&we->reply, we->fd);
 	    casycom_mark_unused (we);	// ... in the next idle
+	}
     }
     return _timer_WatchList.size;
 }

@@ -92,8 +92,10 @@ static inline void casystm_write_align (WStm* s, size_t grain) {
 	casystm_write_uint8 (s, 0);
 }
 
-static inline size_t casystm_size_string (const char* v)
-    { return Align (sizeof(uint32_t)+strlen(v)+1, 4); }
+static inline size_t casystm_size_string (const char* v) {
+    size_t l = v ? strlen(v) : 0;
+    return Align (sizeof(uint32_t)+l+!!l, 4);
+}
 
 #ifdef __cplusplus
 } // namespace

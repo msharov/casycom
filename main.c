@@ -364,7 +364,7 @@ static SMsgLink* casycom_find_or_create_destination (const SMsg* msg)
 	ml = casycom_find_destination (msg->h.dest);
 	if (!ml || ml->o || (ml->o = no))
 	    break;
-	no = casycom_create_link_object (ml, msg); // Create the object, if needed
+	no = casycom_create_link_object (ml, msg);	// Create the object, if needed
     }
     return ml;
 }

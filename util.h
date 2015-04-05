@@ -104,6 +104,10 @@ static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
 //}}}-------------------------------------------------------------------
 //{{{ Miscellaneous
 
+// Systemd socket activation support
+enum { SD_LISTEN_FDS_START = 3 };
+unsigned sd_listen_fds (void);
+
 #ifdef __cplusplus
 namespace {
 #endif

@@ -155,3 +155,15 @@ void vector_swap (void* vv1, void* vv2)
 }
 
 //}}}-------------------------------------------------------------------
+//{{{ Miscellaneous
+
+unsigned sd_listen_fds (void)
+{
+    const char* e = getenv("LISTEN_PID");
+    if (!e || getpid() != (pid_t) strtoul(e, NULL, 10))
+	return 0;
+    e = getenv("LISTEN_FDS");
+    return e ? strtoul (e, NULL, 10) : 0;
+}
+
+//}}}-------------------------------------------------------------------
