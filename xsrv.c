@@ -11,23 +11,28 @@
 
 //{{{ PExternServer ----------------------------------------------------
 
-void PExternServer_Open (const PProxy* pp, int fd, const iid_t* exportedInterfaces)
+enum {
+    method_ExternServer_Open,
+    method_ExternServer_Close
+};
+
+void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces)
 {
     assert (pp->interface == &i_ExternServer && "this proxy is for a different interface");
-    SMsg* msg = casymsg_begin (pp, method_ExternServer_Open, 8+4);
+    Msg* msg = casymsg_begin (pp, method_ExternServer_Open, 8+4);
     WStm os = casymsg_write (msg);
     casystm_write_uint64 (&os, (uintptr_t) exportedInterfaces);
     casystm_write_int32 (&os, fd);
     casymsg_end (msg);
 }
 
-void PExternServer_Close (const PProxy* pp)
+void PExternServer_Close (const Proxy* pp)
 {
     assert (pp->interface == &i_ExternServer && "this proxy is for a different interface");
     casymsg_end (casymsg_begin (pp, method_ExternServer_Close, 0));
 }
 
-static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const SMsg* msg)
+static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const Msg* msg)
 {
     assert (dtable->interface == &i_ExternServer && "dispatch given dtable for a different interface");
     if (msg->imethod == method_ExternServer_Open) {
@@ -41,7 +46,7 @@ static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const 
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
-const SInterface i_ExternServer = {
+const Interface i_ExternServer = {
     .name = "ExternServer",
     .dispatch = PExternServer_Dispatch,
     .method = { "Open\0xi", "Close\0", NULL }
@@ -76,7 +81,7 @@ static void ExternServer_RegisterLocalName (int fd, const char* path)
 }
 
 /// Create server socket bound to the given address
-int PExternServer_Bind (const PProxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* exportedInterfaces)
+int PExternServer_Bind (const Proxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* exportedInterfaces)
 {
     int fd = socket (addr->sa_family, SOCK_STREAM| SOCK_NONBLOCK| SOCK_CLOEXEC, IPPROTO_IP);
     if (fd < 0)
@@ -98,7 +103,7 @@ int PExternServer_Bind (const PProxy* pp, const struct sockaddr* addr, socklen_t
 }
 
 /// Create local socket with given path
-int PExternServer_BindLocal (const PProxy* pp, const char* path, const iid_t* exportedInterfaces)
+int PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exportedInterfaces)
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
@@ -111,7 +116,7 @@ int PExternServer_BindLocal (const PProxy* pp, const char* path, const iid_t* ex
 }
 
 /// Create local socket of the given name in the system standard location for such
-int PExternServer_BindSystemLocal (const PProxy* pp, const char* sockname, const iid_t* exportedInterfaces)
+int PExternServer_BindSystemLocal (const Proxy* pp, const char* sockname, const iid_t* exportedInterfaces)
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
@@ -124,7 +129,7 @@ int PExternServer_BindSystemLocal (const PProxy* pp, const char* sockname, const
 }
 
 /// Create local socket of the given name in the user standard location for such
-int PExternServer_BindUserLocal (const PProxy* pp, const char* sockname, const iid_t* exportedInterfaces)
+int PExternServer_BindUserLocal (const Proxy* pp, const char* sockname, const iid_t* exportedInterfaces)
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
@@ -142,17 +147,17 @@ int PExternServer_BindUserLocal (const PProxy* pp, const char* sockname, const i
 //}}}-------------------------------------------------------------------
 //{{{ ExternServer
 
-DECLARE_VECTOR_TYPE (ProxyVector, PProxy);
+DECLARE_VECTOR_TYPE (ProxyVector, Proxy);
 
 typedef struct _ExternServer {
-    PProxy		reply;
+    Proxy		reply;
     int			fd;
-    PProxy		timer;
+    Proxy		timer;
     const iid_t*	exportedInterfaces;
     ProxyVector		pconn;
 } ExternServer;
 
-static void* ExternServer_Create (const SMsg* msg)
+static void* ExternServer_Create (const Msg* msg)
 {
     ExternServer* o = (ExternServer*) xalloc (sizeof(ExternServer));
     o->reply = casycom_create_reply_proxy (&i_ExternR, msg);
@@ -197,7 +202,7 @@ static void ExternServer_TimerR_Timer (ExternServer* o, int fd)
 {
     assert (fd == o->fd);
     for (int cfd; 0 <= (cfd = accept (fd, NULL, NULL));) {
-	PProxy* pconn = vector_emplace_back (&o->pconn);
+	Proxy* pconn = vector_emplace_back (&o->pconn);
 	*pconn = casycom_create_proxy (&i_Extern, o->reply.src);
 	DEBUG_PRINTF ("[X] Client connection accepted on fd %d\n", cfd);
 	PExtern_Open (pconn, cfd, EXTERN_SERVER, NULL, o->exportedInterfaces);
@@ -243,7 +248,7 @@ static const DExternR d_ExternServer_ExternR = {
     .interface	= &i_ExternR,
     DMETHOD (ExternServer, ExternR_Connected)
 };
-const SFactory f_ExternServer = {
+const Factory f_ExternServer = {
     .Create	= ExternServer_Create,
     .Destroy	= ExternServer_Destroy,
     .Error	= ExternServer_Error,

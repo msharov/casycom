@@ -8,18 +8,23 @@
 //----------------------------------------------------------------------
 // PApp
 
-void PApp_Init (const PProxy* pp, unsigned argc, const char* const* argv)
+enum {
+    method_App_Init,
+    method_App_Signal
+};
+
+void PApp_Init (const Proxy* pp, unsigned argc, const char* const* argv)
 {
-    SMsg* msg = casymsg_begin (pp, method_App_Init, 12);
+    Msg* msg = casymsg_begin (pp, method_App_Init, 12);
     WStm os = casymsg_write (msg);
     casystm_write_uint64 (&os, (uintptr_t) argv);
     casystm_write_uint32 (&os, argc);
     casymsg_end (msg);
 }
 
-void PApp_Signal (const PProxy* pp, unsigned sig, pid_t childPid, int childStatus)
+void PApp_Signal (const Proxy* pp, unsigned sig, pid_t childPid, int childStatus)
 {
-    SMsg* msg = casymsg_begin (pp, method_App_Signal, 12);
+    Msg* msg = casymsg_begin (pp, method_App_Signal, 12);
     WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, sig);
     casystm_write_uint32 (&os, childPid);
@@ -27,7 +32,7 @@ void PApp_Signal (const PProxy* pp, unsigned sig, pid_t childPid, int childStatu
     casymsg_end (msg);
 }
 
-static void PApp_Dispatch (const DApp* dtable, void* o, const SMsg* msg)
+static void PApp_Dispatch (const DApp* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_App_Init) {
 	RStm is = casymsg_read (msg);
@@ -46,7 +51,7 @@ static void PApp_Dispatch (const DApp* dtable, void* o, const SMsg* msg)
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
-const SInterface i_App = {
+const Interface i_App = {
     .dispatch = PApp_Dispatch,
     .name = "App",
     .method = { "Init\0xu", "Signal\0uui", NULL }

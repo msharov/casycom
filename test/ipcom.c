@@ -6,34 +6,48 @@
 #include "ping.h"
 #include <sys/socket.h>
 
+//----------------------------------------------------------------------
+
+typedef struct _App {
+    Proxy	pingp;
+    unsigned	pingCount;
+    Proxy	externp;
+    pid_t	serverPid;
+} App;
+
+//----------------------------------------------------------------------
+// It is easy to connect to and to create object servers with casycom.
+// ipcom illustrates the three common methods of doing so:
+// App_Client demonstrates how to connect to an object server.
+static void App_Client (App* app);
+// App_Server demonstrates how to create an object server.
+static void App_Server (App* app);
+// App_ForkAndPipe launches object server and connects to it
+// using a socketpair pipe. This can be used for private servers,
+// but here it is just to make running the automated test easy.
+static void App_ForkAndPipe (App* app);
+
+// When you run an object server, you must specify a list of interfaces
+// it is capable of instantiating. In this example, the only interface
+// exported is i_Ping (see ping.h). The client side sends a NULL export
+// list when it only imports interfaces.
+static const iid_t eil_Ping[] = { &i_Ping, NULL };
+
+// Object servers can be run on a UNIX socket or a TCP port. ipcom shows
+// the UNIX socket version. These sockets are created in system standard
+// locations; typically /run for root processes or /run/user/<uid> for
+// processes launched by the user. If you also implement systemd socket
+// activation (see below), any other sockets can be used.
 #define IPCOM_SOCKET_NAME	"ipcom.socket"
 
 //----------------------------------------------------------------------
 
-DECLARE_VECTOR_TYPE (ProxyVector, PProxy);
-
-typedef struct _SApp {
-    PProxy	pingp;
-    unsigned	pingCount;
-    PProxy	externp;
-    pid_t	serverPid;
-} SApp;
-
-static const iid_t eil_Ping[] = { &i_Ping, NULL };
-
-//----------------------------------------------------------------------
-
-static void App_ForkAndPipe (SApp* app);
-static void App_Client (SApp* app);
-static void App_Server (SApp* app);
-
-//----------------------------------------------------------------------
-
-static void* App_Create (const SMsg* msg UNUSED)
-    { static SApp o; memset (&o,0,sizeof(o)); return &o; }
+// Singleton App, like in the fwork example
+static void* App_Create (const Msg* msg UNUSED)
+    { static App o = {PROXY_INIT,0,PROXY_INIT,0}; return &o; }
 static void App_Destroy (void* p UNUSED) {}
 
-static void App_App_Init (SApp* app, unsigned argc, char* const* argv)
+static void App_App_Init (App* app, unsigned argc, char* const* argv)
 {
     // Process command line arguments to determine mode of operation
     enum {
@@ -75,7 +89,7 @@ static void App_App_Init (SApp* app, unsigned argc, char* const* argv)
     }
 }
 
-static void App_ForkAndPipe (SApp* app)
+static void App_ForkAndPipe (App* app)
 {
     app->externp = casycom_create_proxy (&i_Extern, oid_App);
     // To simplify this test program, use the same executable for both
@@ -88,22 +102,28 @@ static void App_ForkAndPipe (SApp* app)
 	return casycom_error ("fork: %s", strerror(errno));
     if (fr == 0) {	// Server side
 	close (socks[0]);
-	casycom_register (&f_Ping);
+	casycom_register (&f_Ping);	// This is the exported interface
 	// Export the ping interface on this side, and import nothing.
 	PExtern_Open (&app->externp, socks[1], EXTERN_SERVER, NULL, eil_Ping);
     } else {		// Client side
 	app->serverPid = fr;
 	close (socks[1]);
 	// List interfaces that can be accessed from outside.
-	// On the client side, no interfaces are exported, but ping is imported.
+	// On the client side, Ping is imported and no interfaces are exported.
 	PExtern_Open (&app->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
     }
 }
 
-static void App_Client (SApp* app)
+static void App_Client (App* app)
 {
     // Clients create Extern objects connected to a specific socket
     app->externp = casycom_create_proxy (&i_Extern, oid_App);
+    //
+    // ConnectUserLocal connects to the named UNIX socket in the user's runtime
+    // directory (typically /run/user/<uid>). There are also ConnectSystemLocal
+    // for connecting to system services, and methods for connecting to TCP services,
+    // ConnectIP4, ConnectLocalIP4, etc. See xcom.h.
+    //
     if (0 > PExtern_ConnectUserLocal (&app->externp, IPCOM_SOCKET_NAME, eil_Ping))
 	// Connect and Bind calls connect or bind immediately, and so can return errors here
 	casycom_error ("Extern_ConnectUserLocal: %s", strerror(errno));
@@ -111,18 +131,27 @@ static void App_Client (SApp* app)
     app->serverPid = getpid();
 }
 
-static void App_Server (SApp* app)
+static void App_Server (App* app)
 {
     // When writing a server, it is recommended to use the ExternServer
     // object to manage the sockets being listened to. It will create
-    // Extern objects for each accepted connection.
+    // Extern objects for each accepted connection. For the purpose of
+    // this example, only one socket is listened on, but additional
+    // ExternServer objects can be created to serve on more sockets.
+    //
     casycom_register (&f_ExternServer);
     casycom_register (&f_Ping);
     app->externp = casycom_create_proxy (&i_ExternServer, oid_App);
-    // Check if using systemd socket activation
-    if (sd_listen_fds())	// sd_listen_fds returns number of fds, but for this test, only one is supported
+    // 
+    // For flexibility it is recommended to implement systemd socket activation.
+    // Doing so is very simple; sd_listen_fds returns the number of fds passed to
+    // the process by systemd. The fds start at SD_LISTEN_FDS_START. To keep the
+    // example simple, only the first one is used; create more ExternServer objects
+    // to listen on more than one socket.
+    //
+    if (sd_listen_fds())
 	PExternServer_Open (&app->externp, SD_LISTEN_FDS_START+0, eil_Ping);
-    else {	// If not using socket activation, create a socket manually
+    else {	// If no sockets were passed from systemd, create one manually
 	// Use BindUserLocal to create the socket in XDG_RUNTIME_DIR,
 	// the standard location for sockets of user services.
 	// See other Bind variants in xsrv.h.
@@ -131,7 +160,11 @@ static void App_Server (SApp* app)
     }
 }
 
-static void App_ExternR_Connected (SApp* app)
+// When a client connects, ExternServer will forward the ExternR_Connected message
+// here. This is the appropriate place to check that all the imports are satisfied,
+// authenticate the connection (if using a UNIX socket), and create objects.
+//
+static void App_ExternR_Connected (App* app)
 {
     // Both directly connected Extern objects and ExternServer objects send this reply.
     if (!app->serverPid)
@@ -144,7 +177,10 @@ static void App_ExternR_Connected (SApp* app)
     PPing_Ping (&app->pingp, 1);
 }
 
-static void App_PingR_Ping (SApp* app, uint32_t u)
+// The ping replies are received exactly the same way as from a local
+// object. But now the object resides in the server process and the
+// message is read from the socket.
+static void App_PingR_Ping (App* app, uint32_t u)
 {
     printf ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
     casycom_quit (EXIT_SUCCESS);
@@ -162,7 +198,7 @@ static const DExternR d_App_ExternR = {
     .interface = &i_ExternR,
     DMETHOD (App, ExternR_Connected)
 };
-static const SFactory f_App = {
+static const Factory f_App = {
     .Create	= App_Create,
     .Destroy	= App_Destroy,
     .dtable	= { &d_App_App, &d_App_PingR, &d_App_ExternR, NULL }

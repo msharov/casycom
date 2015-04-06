@@ -7,14 +7,19 @@
 
 //{{{ Ping interface ---------------------------------------------------
 
+// Indexes for Ping methods, for the imethod field in the message.
+// This is used only when marshalling the message and during its
+// dispatch. Remember to keep this synchronized with the dtable.
+enum { method_Ping_Ping };
+
 // Each interface method has a corresponding proxy method, called
 // as if the proxy was the remote object. The proxy methods marshal
 // the arguments into a message object and put it in the queue.
-void PPing_Ping (const PProxy* pp, uint32_t v)
+void PPing_Ping (const Proxy* pp, uint32_t v)
 {
     assert (pp->interface == &i_Ping && "the given proxy is for a different interface");
     // casymsg_begin will create a message of the given size (here sizeof(v))
-    SMsg* msg = casymsg_begin (pp, method_Ping_Ping, sizeof(v));
+    Msg* msg = casymsg_begin (pp, method_Ping_Ping, sizeof(v));
     // casystm functions are defined in stm.h
     WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, v);
@@ -24,7 +29,7 @@ void PPing_Ping (const PProxy* pp, uint32_t v)
 
 // Dispatch function for the Ping interface
 // The arguments are the destination object, its dispatch table, and the message
-static void Ping_Dispatch (const DPing* dtable, void* o, const SMsg* msg)
+static void Ping_Dispatch (const DPing* dtable, void* o, const Msg* msg)
 {
     // The message stores the method as an index into the interface.method array
     if (msg->imethod == method_Ping_Ping) {	// Use constant defined above
@@ -37,25 +42,27 @@ static void Ping_Dispatch (const DPing* dtable, void* o, const SMsg* msg)
 
 // The interface definition, containing the name, method list, and
 // dispatch function pointer.
-const SInterface i_Ping = {
+const Interface i_Ping = {
     .name	= "Ping",
     .dispatch	= Ping_Dispatch,
     .method	= { "Ping\0u", NULL }
 };
 
 //}}}-------------------------------------------------------------------
-//{{{ PingR interface ---------------------------------------------------
+//{{{ PingR interface
 
-void PPingR_Ping (const PProxy* pp, uint32_t v)
+enum { method_PingR_Ping };
+
+void PPingR_Ping (const Proxy* pp, uint32_t v)
 {
     assert (pp->interface == &i_PingR && "the given proxy is for a different interface");
-    SMsg* msg = casymsg_begin (pp, method_PingR_Ping, sizeof(v));
+    Msg* msg = casymsg_begin (pp, method_PingR_Ping, sizeof(v));
     WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, v);
     casymsg_end (msg);
 }
 
-static void PingR_Dispatch (const DPingR* dtable, void* o, const SMsg* msg)
+static void PingR_Dispatch (const DPingR* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_PingR_Ping) {
 	RStm is = casymsg_read (msg);
@@ -67,7 +74,7 @@ static void PingR_Dispatch (const DPingR* dtable, void* o, const SMsg* msg)
 
 // The interface definition, containing the name, method list, and
 // dispatch function pointer.
-const SInterface i_PingR = {
+const Interface i_PingR = {
     .name	= "PingR",
     .dispatch	= PingR_Dispatch,
     .method	= { "Ping\0u", NULL }
@@ -77,19 +84,19 @@ const SInterface i_PingR = {
 //{{{ Ping server object
 
 // The ping server object data
-typedef struct _SPing {
-    PProxy	reply;
+typedef struct _Ping {
+    Proxy	reply;
     unsigned	nPings;
-} SPing;
+} Ping;
 
 // The constructor for the object, called when the first message sent
 // to it arrives. It must return a valid object pointer. Here, a new
 // object is allocated and returned. (xalloc will zero the memory)
 // msg->dest is the new object's oid, which may be saved if needed.
-static void* Ping_Create (const SMsg* msg)
+static void* Ping_Create (const Msg* msg)
 {
     printf ("Created Ping %u\n", msg->h.dest);
-    SPing* po = (SPing*) xalloc (sizeof(SPing));
+    Ping* po = (Ping*) xalloc (sizeof(Ping));
     po->reply = casycom_create_reply_proxy (&i_PingR, msg);
     return po;
 }
@@ -102,7 +109,7 @@ static void Ping_Destroy (void* o)
 }
 
 // Method implementing the Ping.Ping interface method
-static void Ping_Ping_Ping (SPing* o, uint32_t u)
+static void Ping_Ping_Ping (Ping* o, uint32_t u)
 {
     printf ("Ping: %u, %u total\n", u, ++o->nPings);
     PPingR_Ping (&o->reply, u);
@@ -124,10 +131,10 @@ static const DPing d_Ping_Ping = {
     DMETHOD (Ping, Ping_Ping)
 };
 
-// SFactory defines the methods required to create objects of this
+// Factory defines the methods required to create objects of this
 // type. The framework will do so when receiving a  message addressed
 // to an interface listed in the .dtable array.
-const SFactory f_Ping = {
+const Factory f_Ping = {
     .Create = Ping_Create,
     .Destroy = Ping_Destroy,
     // Lists each interface implemented by this object

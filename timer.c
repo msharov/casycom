@@ -10,10 +10,12 @@
 //----------------------------------------------------------------------
 // Timer interface
 
-void PTimer_Watch (const PProxy* pp, enum EWatchCmd cmd, int fd, casytimer_t timeoutms)
+enum { method_Timer_Watch };
+
+void PTimer_Watch (const Proxy* pp, enum ETimerWatchCmd cmd, int fd, casytimer_t timeoutms)
 {
     assert (pp->interface == &i_Timer && "the given proxy is for a different interface");
-    SMsg* msg = casymsg_begin (pp, method_Timer_Watch, 16);
+    Msg* msg = casymsg_begin (pp, method_Timer_Watch, 16);
     WStm os = casymsg_write (msg);
     casystm_write_uint32 (&os, cmd);
     casystm_write_int32 (&os, fd);
@@ -21,11 +23,11 @@ void PTimer_Watch (const PProxy* pp, enum EWatchCmd cmd, int fd, casytimer_t tim
     casymsg_end (msg);
 }
 
-static void Timer_Dispatch (const DTimer* dtable, void* o, const SMsg* msg)
+static void Timer_Dispatch (const DTimer* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_Timer_Watch) {
 	RStm is = casymsg_read (msg);
-	enum EWatchCmd cmd = casystm_read_uint32 (&is);
+	enum ETimerWatchCmd cmd = casystm_read_uint32 (&is);
 	int fd = casystm_read_int32 (&is);
 	casytimer_t timeoutms = casystm_read_uint64 (&is);
 	dtable->Timer_Watch (o, cmd, fd, timeoutms);
@@ -33,7 +35,7 @@ static void Timer_Dispatch (const DTimer* dtable, void* o, const SMsg* msg)
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
-const SInterface i_Timer = {
+const Interface i_Timer = {
     .name	= "Timer",
     .dispatch	= Timer_Dispatch,
     .method	= { "Watch\0uix", NULL }
@@ -42,15 +44,17 @@ const SInterface i_Timer = {
 //----------------------------------------------------------------------
 // TimerR interface
 
-void PTimerR_Timer (const PProxy* pp, int fd)
+enum { method_TimerR_Timer };
+
+void PTimerR_Timer (const Proxy* pp, int fd)
 {
-    SMsg* msg = casymsg_begin (pp, method_TimerR_Timer, 4);
+    Msg* msg = casymsg_begin (pp, method_TimerR_Timer, 4);
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
     casymsg_end (msg);
 }
 
-static void TimerR_Dispatch (const DTimerR* dtable, void* o, const SMsg* msg)
+static void TimerR_Dispatch (const DTimerR* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_TimerR_Timer) {
 	RStm is = casymsg_read (msg);
@@ -60,7 +64,7 @@ static void TimerR_Dispatch (const DTimerR* dtable, void* o, const SMsg* msg)
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
-const SInterface i_TimerR = {
+const Interface i_TimerR = {
     .name	= "TimerR",
     .dispatch	= TimerR_Dispatch,
     .method	= { "Timer\0i", NULL }
@@ -69,22 +73,22 @@ const SInterface i_TimerR = {
 //----------------------------------------------------------------------
 // The Timer server object
 
-typedef struct _STimer {
-    PProxy		reply;
+typedef struct _Timer {
+    Proxy		reply;
     casytimer_t		nextfire;
-    enum EWatchCmd	cmd;
+    enum ETimerWatchCmd	cmd;
     int			fd;
-} STimer;
+} Timer;
 
 // Global list of pointers to active timer objects
-DECLARE_VECTOR_TYPE (WatchList, STimer*);
+DECLARE_VECTOR_TYPE (WatchList, Timer*);
 static VECTOR(WatchList, _timer_WatchList);
 
 //----------------------------------------------------------------------
 
-void* Timer_Create (const SMsg* msg)
+void* Timer_Create (const Msg* msg)
 {
-    STimer* o = (STimer*) xalloc (sizeof(STimer));
+    Timer* o = (Timer*) xalloc (sizeof(Timer));
     o->reply = casycom_create_reply_proxy (&i_TimerR, msg);
     o->nextfire = TIMER_NONE;
     o->cmd = WATCH_STOP;
@@ -95,7 +99,7 @@ void* Timer_Create (const SMsg* msg)
 
 void Timer_Destroy (void* vo)
 {
-    STimer* o = (STimer*) vo;
+    Timer* o = (Timer*) vo;
     for (int i = _timer_WatchList.size; --i >= 0;)
 	if (_timer_WatchList.d[i] == o)
 	    vector_erase (&_timer_WatchList, i);
@@ -104,7 +108,7 @@ void Timer_Destroy (void* vo)
 	vector_deallocate (&_timer_WatchList);
 }
 
-void Timer_Timer_Watch (STimer* o, enum EWatchCmd cmd, int fd, casytimer_t timeoutms)
+void Timer_Timer_Watch (Timer* o, enum ETimerWatchCmd cmd, int fd, casytimer_t timeoutms)
 {
     o->cmd = cmd;
     o->fd = fd;
@@ -122,7 +126,7 @@ bool Timer_RunTimer (int toWait)
     size_t nFds = 0;
     casytimer_t nearest = TIMER_MAX;
     for (size_t i = 0; i < _timer_WatchList.size; ++i) {
-	const STimer* we = _timer_WatchList.d[i];
+	const Timer* we = _timer_WatchList.d[i];
 	if (we->nextfire < nearest)
 	    nearest = we->nextfire;
 	if (we->fd >= 0 && we->cmd != WATCH_STOP) {
@@ -149,7 +153,7 @@ bool Timer_RunTimer (int toWait)
     // poll will exit when there are fds available or when the timer expires
     const casytimer_t now = Timer_NowMS();
     for (size_t i = 0, fdi = 0; i < _timer_WatchList.size; ++i) {
-	const STimer* we = _timer_WatchList.d[i];
+	const Timer* we = _timer_WatchList.d[i];
 	bool bFired = we->nextfire <= now;	// Check timer expiration
 	if (we->fd >= 0 && we->cmd != WATCH_STOP) {
 	    // Check if fd fired, or has errors. Errors will be detected when the client tries to use the fd.
@@ -180,7 +184,7 @@ static const DTimer d_Timer_Timer = {
     .interface = &i_Timer,
     DMETHOD (Timer, Timer_Watch)
 };
-const SFactory f_Timer = {
+const Factory f_Timer = {
     .Create	= Timer_Create,
     .Destroy	= Timer_Destroy,
     .dtable	= { &d_Timer_Timer, NULL }

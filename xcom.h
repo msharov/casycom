@@ -14,11 +14,6 @@ extern "C" {
 
 //{{{ Extern -----------------------------------------------------------
 
-enum EExternMethod {
-    method_Extern_Open,
-    method_Extern_Close,
-    method_Extern_N
-};
 enum EExternType {
     EXTERN_CLIENT,
     EXTERN_SERVER
@@ -31,14 +26,14 @@ typedef struct _DExtern {
     MFN_Extern_Close	Extern_Close;
 } DExtern;
 
-void PExtern_Open (const PProxy* pp, int fd, enum EExternType atype, const iid_t* importInterfaces, const iid_t* exportInterfaces) noexcept NONNULL(1);
-void PExtern_Close (const PProxy* pp) noexcept NONNULL();
-int  PExtern_Connect (const PProxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* importedInterfaces) noexcept NONNULL();
-int  PExtern_ConnectLocal (const PProxy* pp, const char* path, const iid_t* importedInterfaces) noexcept NONNULL();
-int  PExtern_ConnectUserLocal (const PProxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
-int  PExtern_ConnectSystemLocal (const PProxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
+void PExtern_Open (const Proxy* pp, int fd, enum EExternType atype, const iid_t* importInterfaces, const iid_t* exportInterfaces) noexcept NONNULL(1);
+void PExtern_Close (const Proxy* pp) noexcept NONNULL();
+int  PExtern_Connect (const Proxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* importedInterfaces) noexcept NONNULL();
+int  PExtern_ConnectLocal (const Proxy* pp, const char* path, const iid_t* importedInterfaces) noexcept NONNULL();
+int  PExtern_ConnectUserLocal (const Proxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
+int  PExtern_ConnectSystemLocal (const Proxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
 
-extern const SInterface i_Extern;
+extern const Interface i_Extern;
 
 void casycom_enable_externs (void) noexcept;
 
@@ -48,7 +43,7 @@ namespace {
 #endif
 
 /// Create local IPv4 socket at given ip and port
-static inline int PExtern_ConnectIP4 (const PProxy* pp, in_addr_t ip, in_port_t port, const iid_t* importedInterfaces)
+static inline int PExtern_ConnectIP4 (const Proxy* pp, in_addr_t ip, in_port_t port, const iid_t* importedInterfaces)
 {
     struct sockaddr_in addr = {
 	.sin_family = PF_INET,
@@ -63,11 +58,11 @@ static inline int PExtern_ConnectIP4 (const PProxy* pp, in_addr_t ip, in_port_t 
 }
 
 /// Create local IPv4 socket at given port on the loopback interface
-static inline int PExtern_ConnectLocalIP4 (const PProxy* pp, in_port_t port, const iid_t* importedInterfaces)
+static inline int PExtern_ConnectLocalIP4 (const Proxy* pp, in_port_t port, const iid_t* importedInterfaces)
     { return PExtern_ConnectIP4 (pp, INADDR_LOOPBACK, port, importedInterfaces); }
 
 /// Create local IPv6 socket at given ip and port
-static inline int PExtern_ConnectIP6 (const PProxy* pp, struct in6_addr ip, in_port_t port, const iid_t* importedInterfaces)
+static inline int PExtern_ConnectIP6 (const Proxy* pp, struct in6_addr ip, in_port_t port, const iid_t* importedInterfaces)
 {
     struct sockaddr_in6 addr = {
 	.sin6_family = PF_INET6,
@@ -82,7 +77,7 @@ static inline int PExtern_ConnectIP6 (const PProxy* pp, struct in6_addr ip, in_p
 }
 
 /// Create local IPv6 socket at given ip and port
-static inline int PExtern_ConnectLocalIP6 (const PProxy* pp, in_port_t port, const iid_t* importedInterfaces)
+static inline int PExtern_ConnectLocalIP6 (const Proxy* pp, in_port_t port, const iid_t* importedInterfaces)
 {
     struct sockaddr_in6 addr = {
 	.sin6_family = PF_INET6,
@@ -96,23 +91,19 @@ static inline int PExtern_ConnectLocalIP6 (const PProxy* pp, in_port_t port, con
 #ifdef __cplusplus
 } // namespace
 #endif
-//}}}2------------------------------------------------------------------
+//}}}2
 //}}}-------------------------------------------------------------------
 //{{{ ExternR
 
-enum EExternRMethod {
-    method_ExternR_Connected,
-    method_ExternR_N
-};
-typedef void (*MFN_ExternR_Connected)(void* vo, const SMsg* msg);
+typedef void (*MFN_ExternR_Connected)(void* vo, const Msg* msg);
 typedef struct _DExternR {
     iid_t			interface;
     MFN_ExternR_Connected	ExternR_Connected;
 } DExternR;
 
-void PExternR_Connected (const PProxy* pp) noexcept NONNULL();
+void PExternR_Connected (const Proxy* pp) noexcept NONNULL();
 
-extern const SInterface i_ExternR;
+extern const Interface i_ExternR;
 
 //}}}-------------------------------------------------------------------
 

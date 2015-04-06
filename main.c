@@ -24,34 +24,34 @@ static _Atomic(bool) _casycom_OutputQueueLock = false;
 // Last error
 static char* _casycom_Error = NULL;
 // App proxy
-static PProxy _casycom_PApp = { NULL, 0, 0 };
+static Proxy _casycom_PApp = PROXY_INIT;
 #ifndef NDEBUG
 // Enables debug trace messages
 bool casycom_DebugMsgTrace = false;
 #endif
 
 // Message queues
-DECLARE_VECTOR_TYPE (SMsgVector, SMsg*);
-static VECTOR (SMsgVector, _casycom_InputQueue);	// During each main loop iteration, this queue is read
-static VECTOR (SMsgVector, _casycom_OutputQueue);	// ... and this queue is written. Then they are swapped.
+DECLARE_VECTOR_TYPE (MsgVector, Msg*);
+static VECTOR (MsgVector, _casycom_InputQueue);	// During each main loop iteration, this queue is read
+static VECTOR (MsgVector, _casycom_OutputQueue);	// ... and this queue is written. Then they are swapped.
 
 // Object table contains object factories and the dtables they support
-DECLARE_VECTOR_TYPE (SFactoryTable, const SFactory*);
-static VECTOR (SFactoryTable, _casycom_ObjectTable);
-static const SFactory* _casycom_DefaultObject = NULL;
+DECLARE_VECTOR_TYPE (FactoryTable, const Factory*);
+static VECTOR (FactoryTable, _casycom_ObjectTable);
+static const Factory* _casycom_DefaultObject = NULL;
 
 // Message link map
 typedef enum _OFlags {
     f_Unused,	// Objects marked unused are deleted during loop idle
     f_Last
 } OFlags;
-typedef struct _SMsgLink {
+typedef struct _MsgLink {
     void*		o;
-    const SFactory*	factory;
-    PProxy		h;
+    const Factory*	factory;
+    Proxy		h;
     uint32_t		flags;
-} SMsgLink;
-DECLARE_VECTOR_TYPE (SOMap, SMsgLink);
+} MsgLink;
+DECLARE_VECTOR_TYPE (SOMap, MsgLink);
 
 // _casycom_OMap contains the message routing table, mapping each
 // proxy-to-object link. The map is sorted by object id. Each object
@@ -68,16 +68,16 @@ static VECTOR (SOMap, _casycom_OMap);
 //----------------------------------------------------------------------
 // Local private functions
 
-static SMsgLink* casycom_find_destination (oid_t doid);
-static SMsgLink* casycom_find_or_create_destination (const SMsg* msg);
-static SMsgLink* casycom_link_for_object (const void* o);
-static const DTable* casycom_find_dtable (const SFactory* o, iid_t iid);
-static const SFactory* casycom_find_factory (iid_t iid);
-static size_t casycom_link_for_proxy (const PProxy* ph);
+static MsgLink* casycom_find_destination (oid_t doid);
+static MsgLink* casycom_find_or_create_destination (const Msg* msg);
+static MsgLink* casycom_link_for_object (const void* o);
+static const DTable* casycom_find_dtable (const Factory* o, iid_t iid);
+static const Factory* casycom_find_factory (iid_t iid);
+static size_t casycom_link_for_proxy (const Proxy* ph);
 static size_t casycom_omap_lower_bound (oid_t oid);
-static void* casycom_create_link_object (SMsgLink* ml, const SMsg* msg);
+static void* casycom_create_link_object (MsgLink* ml, const Msg* msg);
 static void casycom_destroy_link_at (size_t l);
-static void casycom_destroy_object (SMsgLink* ol);
+static void casycom_destroy_object (MsgLink* ol);
 static void casycom_do_message_queues (void);
 static void casycom_idle (void);
 
@@ -134,7 +134,7 @@ static void casycom_install_signal_handlers (void)
 //{{{ Proxies and link table
 
 /// Creates a proxy to a new object from object \p src, using interface \p iid
-PProxy casycom_create_proxy (iid_t iid, oid_t src)
+Proxy casycom_create_proxy (iid_t iid, oid_t src)
 {
     // Find first unused oid value
     // OMap is sorted, so increment nid until a number gap is found
@@ -152,12 +152,12 @@ PProxy casycom_create_proxy (iid_t iid, oid_t src)
 }
 
 /// Creates a proxy to existing object \p dest from \p src, using interface \p iid
-PProxy casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest)
+Proxy casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest)
 {
     size_t ip = casycom_omap_lower_bound (dest);
     while (ip < _casycom_OMap.size && _casycom_OMap.d[ip].h.dest == dest)
 	++ip;
-    SMsgLink* e = (SMsgLink*) vector_emplace (&_casycom_OMap, ip);
+    MsgLink* e = (MsgLink*) vector_emplace (&_casycom_OMap, ip);
     e->factory = casycom_find_factory (iid);
     e->h.interface = iid;
     e->h.src = src;
@@ -170,14 +170,14 @@ static void casycom_destroy_link_at (size_t l)
 {
     if (l >= _casycom_OMap.size)
 	return;
-    SMsgLink ol = _casycom_OMap.d[l];	// casycom_destroy_object may destroy other links, so l will be invalidated
+    MsgLink ol = _casycom_OMap.d[l];	// casycom_destroy_object may destroy other links, so l will be invalidated
     vector_erase (&_casycom_OMap, l);
     DEBUG_PRINTF ("[T] Destroyed proxy link %hu -> %hu.%s\n", ol.h.src, ol.h.dest, ol.h.interface->name);
     if (ol.o)	// If this is the link that created the object, destroy the object
 	casycom_destroy_object (&ol);
 }
 
-void casycom_destroy_proxy (PProxy* pp)
+void casycom_destroy_proxy (Proxy* pp)
 {
     casycom_destroy_link_at (casycom_link_for_proxy (pp));
     pp->interface = NULL;
@@ -198,7 +198,7 @@ static size_t casycom_omap_lower_bound (oid_t oid)
     return first;
 }
 
-static size_t casycom_link_for_proxy (const PProxy* ph)
+static size_t casycom_link_for_proxy (const Proxy* ph)
 {
     for (size_t l = casycom_omap_lower_bound (ph->dest);
 		l < _casycom_OMap.size && _casycom_OMap.d[l].h.dest == ph->dest;
@@ -208,7 +208,7 @@ static size_t casycom_link_for_proxy (const PProxy* ph)
     return SIZE_MAX;
 }
 
-static SMsgLink* casycom_link_for_object (const void* o)
+static MsgLink* casycom_link_for_object (const void* o)
 {
     for (size_t dp = 0; dp < _casycom_OMap.size; ++dp)
 	if (_casycom_OMap.d[dp].o == o)
@@ -216,7 +216,7 @@ static SMsgLink* casycom_link_for_object (const void* o)
     return NULL;
 }
 
-static SMsgLink* casycom_find_destination (oid_t doid)
+static MsgLink* casycom_find_destination (oid_t doid)
 {
     size_t dp = casycom_omap_lower_bound (doid);
     if (dp < _casycom_OMap.size && _casycom_OMap.d[dp].h.dest == doid)
@@ -228,7 +228,7 @@ void casycom_debug_dump_link_table (void)
 {
     DEBUG_PRINTF ("[D] Current link table:\n");
     for (size_t i = 0; i < _casycom_OMap.size; ++i) {
-	const SMsgLink* l = &_casycom_OMap.d[i];
+	const MsgLink* l = &_casycom_OMap.d[i];
 	DEBUG_PRINTF ("\t%hu -> %hu.%s\t(%p),%x\n", l->h.src, l->h.dest, l->h.interface->name, l->o, l->flags);
     }
 }
@@ -237,7 +237,7 @@ void casycom_debug_dump_link_table (void)
 //{{{ Object registration and creation
 
 #ifndef NDEBUG
-static void casycom_debug_check_object (const SFactory* o, const char* it)
+static void casycom_debug_check_object (const Factory* o, const char* it)
 {
     assert (o->Create && "registered object must have a constructor");
     assert (o->dtable[0] && "an object must implement at least one interface");
@@ -251,7 +251,7 @@ static void casycom_debug_check_object (const SFactory* o, const char* it)
 #endif
 
 /// Registers an object class for creation
-void casycom_register (const SFactory* o)
+void casycom_register (const Factory* o)
 {
     #ifndef NDEBUG
 	casycom_debug_check_object (o, "class");
@@ -260,7 +260,7 @@ void casycom_register (const SFactory* o)
 }
 
 /// Registers object class for unknown interfaces
-void casycom_register_default (const SFactory* o)
+void casycom_register_default (const Factory* o)
 {
     #ifndef NDEBUG
 	if (o)
@@ -274,19 +274,19 @@ void casycom_register_default (const SFactory* o)
 /// Finds object id of the given object
 oid_t casycom_oid_of_object (const void* o)
 {
-    SMsgLink* ml = casycom_link_for_object (o);
+    MsgLink* ml = casycom_link_for_object (o);
     return ml ? ml->h.dest : oid_Broadcast;
 }
 
 /// Marks the given object unused, to be deleted during the next idle
 void casycom_mark_unused (const void* o)
 {
-    SMsgLink* ml = casycom_link_for_object (o);
+    MsgLink* ml = casycom_link_for_object (o);
     if (ml)
 	ml->flags |= (1<<f_Unused);
 }
 
-static void* casycom_create_link_object (SMsgLink* ml, const SMsg* msg)
+static void* casycom_create_link_object (MsgLink* ml, const Msg* msg)
 {
     assert (!ml->o && "internal error: object already exists");
     // Create using the otable
@@ -296,7 +296,7 @@ static void* casycom_create_link_object (SMsgLink* ml, const SMsg* msg)
     return o;
 }
 
-static void casycom_destroy_object (SMsgLink* ol)
+static void casycom_destroy_object (MsgLink* ol)
 {
     // Destroying an object can cause all kinds of ugly recursion as notified
     // objects destroy proxies and mess up OMap. To work around these problems
@@ -317,12 +317,12 @@ static void casycom_destroy_object (SMsgLink* ol)
     unsigned nCallers = 0;
     // In two passes because ObjectDestroyed handlers can modify OMap
     for (size_t di = 0; di < _casycom_OMap.size; ++di) {
-	const SMsgLink* cl = &_casycom_OMap.d[di];
+	const MsgLink* cl = &_casycom_OMap.d[di];
 	if (cl->h.dest == oid && cl->h.src != oid_Broadcast)		// Object calls the destroyed object
 	    callers[nCallers++] = cl->h.src;
     }
     for (unsigned i = 0; i < nCallers; ++i) {
-	const SMsgLink* cl = casycom_find_destination (callers[i]);	// Find the link with its pointer
+	const MsgLink* cl = casycom_find_destination (callers[i]);	// Find the link with its pointer
 	if (cl && cl->factory->ObjectDestroyed) {			// notify of destruction, if requested
 	    DEBUG_PRINTF ("[T]\tNotifying object %hu -> %hu.%s\n", cl->h.src, cl->h.dest, cl->h.interface->name);
 	    cl->factory->ObjectDestroyed (cl->o, oid);
@@ -337,7 +337,7 @@ static void casycom_destroy_object (SMsgLink* ol)
     }
 }
 
-static const DTable* casycom_find_dtable (const SFactory* o, iid_t iid)
+static const DTable* casycom_find_dtable (const Factory* o, iid_t iid)
 {
     for (const DTable* const* oi = (const DTable* const*) o->dtable; *oi; ++oi)
 	if ((*oi)->interface == iid)
@@ -347,10 +347,10 @@ static const DTable* casycom_find_dtable (const SFactory* o, iid_t iid)
     return NULL;
 }
 
-static const SFactory* casycom_find_factory (iid_t iid)
+static const Factory* casycom_find_factory (iid_t iid)
 {
     for (size_t i = 0; i < _casycom_ObjectTable.size; ++i) {
-	const SFactory* ot = _casycom_ObjectTable.d[i];
+	const Factory* ot = _casycom_ObjectTable.d[i];
 	if (casycom_find_dtable (ot, iid))
 	    return ot;
     }
@@ -360,7 +360,7 @@ static const SFactory* casycom_find_factory (iid_t iid)
 iid_t casycom_interface_by_name (const char* iname)
 {
     for (size_t i = 0; i < _casycom_ObjectTable.size; ++i) {
-	const SFactory* f = _casycom_ObjectTable.d[i];
+	const Factory* f = _casycom_ObjectTable.d[i];
 	for (const DTable* const* di = (const DTable* const*) f->dtable; *di; ++di)
 	    if (0 == strcmp ((*di)->interface->name, iname))
 		return (*di)->interface;
@@ -373,9 +373,9 @@ iid_t casycom_interface_by_name (const char* iname)
     return NULL;
 }
 
-static SMsgLink* casycom_find_or_create_destination (const SMsg* msg)
+static MsgLink* casycom_find_or_create_destination (const Msg* msg)
 {
-    SMsgLink* ml;
+    MsgLink* ml;
     void* no = NULL;
     // Object constructor may create proxies, modifying the link map,
     // so if a new object is created, need to find the link again.
@@ -393,12 +393,12 @@ static SMsgLink* casycom_find_or_create_destination (const SMsg* msg)
 
 // This is privately exported to msg.c . Do not use directly.
 // Places \p msg into the output queue. It is thread-safe.
-void casycom_queue_message (SMsg* msg)
+void casycom_queue_message (Msg* msg)
 {
     #ifndef NDEBUG	// Message validity checks
 	assert (msg && msg->h.interface && (!msg->size || msg->body) && "invalid message");
 	assert (casycom_find_factory (msg->h.interface) && "message addressed to unregistered interface");
-	SMsgLink* destl = casycom_find_destination (msg->h.dest);
+	MsgLink* destl = casycom_find_destination (msg->h.dest);
 	assert (destl && "message addressed to an unknown destination");
 	const DTable* dtable = casycom_find_dtable (destl->factory, msg->h.interface);
 	assert (dtable && "message forwarded to object that does not support its interface");
@@ -420,10 +420,10 @@ static void casycom_do_message_queues (void)
 {
     // Deliver all messages in the input queue
     for (size_t m = 0; m < _casycom_InputQueue.size; ++m) {
-	const SMsg* msg = _casycom_InputQueue.d[m];
+	const Msg* msg = _casycom_InputQueue.d[m];
 	if (DEBUG_MSG_TRACE)
 	    casycom_debug_message_dump (msg);
-	SMsgLink* ml = casycom_find_or_create_destination (msg);
+	MsgLink* ml = casycom_find_or_create_destination (msg);
 	if (!ml)	// message addressed to object deleted after sending
 	    continue;
 	// Call the interface dispatch with the object and the message
@@ -447,7 +447,7 @@ static void casycom_do_message_queues (void)
     release_lock (&_casycom_OutputQueueLock);
 }
 
-void casycom_debug_message_dump (const SMsg* msg)
+void casycom_debug_message_dump (const Msg* msg)
 {
     if (!msg) {
 	printf ("[T] NULL Message\n");
@@ -494,7 +494,7 @@ void casycom_reset (void)
 }
 
 /// Replaces casycom_init if casycom is the top-level framework in your process
-void casycom_framework_init (const SFactory* oapp, unsigned argc, const char* const* argv)
+void casycom_framework_init (const Factory* oapp, unsigned argc, const char* const* argv)
 {
     casycom_install_signal_handlers();
     casycom_init();
@@ -584,7 +584,7 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
 {
     assert (_casycom_Error && "you must first set the error with casycom_error");
     // See if the object can handle the error
-    SMsgLink* ml = casycom_find_destination (oid);
+    MsgLink* ml = casycom_find_destination (oid);
     if (!ml)
 	return false;
     DEBUG_PRINTF ("[E] Handling error in object %hu\n", ml->h.dest);

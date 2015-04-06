@@ -5,11 +5,11 @@
 
 #include "main.h"
 
-SMsg* casymsg_begin (const PProxy* pp, uint32_t imethod, uint32_t sz)
+Msg* casymsg_begin (const Proxy* pp, uint32_t imethod, uint32_t sz)
 {
     assert (pp && pp->interface);
     assert ((imethod == method_CreateObject || imethod < casyiface_count_methods (pp->interface)) && "invalid method index for this interface");
-    SMsg* msg = (SMsg*) xalloc (sizeof(SMsg));
+    Msg* msg = (Msg*) xalloc (sizeof(Msg));
     msg->h = *pp;
     msg->imethod = imethod;
     msg->fdoffset = NO_FD_IN_MESSAGE;
@@ -18,9 +18,9 @@ SMsg* casymsg_begin (const PProxy* pp, uint32_t imethod, uint32_t sz)
     return msg;
 }
 
-void casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body)
+void casymsg_from_vector (const Proxy* pp, uint32_t imethod, void* body)
 {
-    SMsg* msg = casymsg_begin (pp, imethod, 0);
+    Msg* msg = casymsg_begin (pp, imethod, 0);
     WStm os = casymsg_write (msg);
     vector* vbody = (vector*) body;
     size_t asz = Align (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
@@ -32,9 +32,9 @@ void casymsg_from_vector (const PProxy* pp, uint32_t imethod, void* body)
     casymsg_end (msg);
 }
 
-void casymsg_forward (const PProxy* pp, SMsg* msg)
+void casymsg_forward (const Proxy* pp, Msg* msg)
 {
-    SMsg* fwm = casymsg_begin (pp, msg->imethod, 0);
+    Msg* fwm = casymsg_begin (pp, msg->imethod, 0);
     fwm->h.interface = msg->h.interface;
     fwm->body = msg->body;
     fwm->size = msg->size;
@@ -126,7 +126,7 @@ static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
     return sz;
 }
 
-size_t casymsg_validate_signature (const SMsg* msg)
+size_t casymsg_validate_signature (const Msg* msg)
 {
     RStm is = casymsg_read(msg);
     size_t sz = 0;
