@@ -46,6 +46,7 @@ oid_t	casycom_oid_of_object (const void* o) noexcept NONNULL();
     #define DEBUG_PRINTF(...)   do {} while (false)
 #endif
 void casycom_debug_message_dump (const SMsg* msg) noexcept NONNULL();
+void casycom_debug_dump_link_table (void) noexcept;
 
 #ifdef __cplusplus
 namespace {

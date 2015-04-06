@@ -183,6 +183,7 @@ static bool ExternServer_Error (void* vo, oid_t eoid, const char* msg)
 
 static void ExternServer_ObjectDestroyed (void* vo, oid_t oid)
 {
+    DEBUG_PRINTF ("[X] Client connection %hu dropped\n", oid);
     ExternServer* o = (ExternServer*) vo;
     for (size_t i = 0; i < o->pconn.size; ++i) {
 	if (o->pconn.d[i].dest == oid) {

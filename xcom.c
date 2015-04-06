@@ -887,8 +887,12 @@ static void* COMRelay_Create (const SMsg* msg)
 	o->pExtern = Extern_FindByInterface (msg->h.interface);
     } else
 	o->pExtern = Extern_FindById (msg->h.dest);
-    if (o->pExtern)
+    if (o->pExtern) {
 	o->externid = o->pExtern->reply.src;
+	// COMRelay does not send any messages to the Extern object, it calls its
+	// functions directly. But having a proxy link allows ObjectDestroyed notification.
+	casycom_create_proxy_to (&i_COM, msg->h.dest, o->externid);
+    }
     return o;
 }
 

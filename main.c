@@ -170,7 +170,7 @@ static void casycom_destroy_link_at (size_t l)
 {
     if (l >= _casycom_OMap.size)
 	return;
-    SMsgLink ol = _casycom_OMap.d[l];
+    SMsgLink ol = _casycom_OMap.d[l];	// casycom_destroy_object may destroy other links, so l will be invalidated
     vector_erase (&_casycom_OMap, l);
     DEBUG_PRINTF ("[T] Destroyed proxy link %hu -> %hu.%s\n", ol.h.src, ol.h.dest, ol.h.interface->name);
     if (ol.o)	// If this is the link that created the object, destroy the object
@@ -222,6 +222,15 @@ static SMsgLink* casycom_find_destination (oid_t doid)
     if (dp < _casycom_OMap.size && _casycom_OMap.d[dp].h.dest == doid)
 	return &_casycom_OMap.d[dp];
     return NULL;
+}
+
+void casycom_debug_dump_link_table (void)
+{
+    DEBUG_PRINTF ("[D] Current link table:\n");
+    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
+	const SMsgLink* l = &_casycom_OMap.d[i];
+	DEBUG_PRINTF ("\t%hu -> %hu.%s\t(%p),%x\n", l->h.src, l->h.dest, l->h.interface->name, l->o, l->flags);
+    }
 }
 
 //}}}-------------------------------------------------------------------
@@ -289,27 +298,37 @@ static void* casycom_create_link_object (SMsgLink* ml, const SMsg* msg)
 
 static void casycom_destroy_object (SMsgLink* ol)
 {
-    // Notify callers of destruction
-    for (size_t di = 0; di < _casycom_OMap.size; ++di) {
-	const SMsgLink* cl = &_casycom_OMap.d[di];
-	if (ol != cl && cl->h.dest == ol->h.dest) {	// Object calls the destroyed object
-	    assert (!cl->o && "internal error: object pointer present on multiple links");
-	    const SMsgLink* clol = casycom_find_destination (cl->h.src);
-	    assert (clol && "internal error: unsorted message links");
-	    if (clol->factory->ObjectDestroyed)		// notify of destruction, if requested
-		clol->factory->ObjectDestroyed (clol->o, ol->h.dest);
-	}
-    }
-    // Call the destructor, if set.
+    // Destroying an object can cause all kinds of ugly recursion as notified
+    // objects destroy proxies and mess up OMap. To work around these problems
+    // links must be saved and various locks set. ol->o is one of those locks.
+    if (!ol->o)
+	return;
     DEBUG_PRINTF ("[T] Destroying object %hu.%s\n", ol->h.dest, ol->h.interface->name);
+    // Call the destructor, if set.
     if (ol->factory->Destroy) {
 	ol->factory->Destroy (ol->o);
 	ol->o = NULL;
     } else
 	xfree (ol->o);	// Otherwise just free
     ol->flags = 0;
-    // Erase all links from this object
     const oid_t oid = ol->h.dest;
+    // Notify callers of destruction
+    oid_t callers [16];
+    unsigned nCallers = 0;
+    // In two passes because ObjectDestroyed handlers can modify OMap
+    for (size_t di = 0; di < _casycom_OMap.size; ++di) {
+	const SMsgLink* cl = &_casycom_OMap.d[di];
+	if (cl->h.dest == oid && cl->h.src != oid_Broadcast)		// Object calls the destroyed object
+	    callers[nCallers++] = cl->h.src;
+    }
+    for (unsigned i = 0; i < nCallers; ++i) {
+	const SMsgLink* cl = casycom_find_destination (callers[i]);	// Find the link with its pointer
+	if (cl && cl->factory->ObjectDestroyed) {			// notify of destruction, if requested
+	    DEBUG_PRINTF ("[T]\tNotifying object %hu -> %hu.%s\n", cl->h.src, cl->h.dest, cl->h.interface->name);
+	    cl->factory->ObjectDestroyed (cl->o, oid);
+	}
+    }
+    // Erase all links from this object
     for (size_t di = 0; di < _casycom_OMap.size; ++di) {
 	if (_casycom_OMap.d[di].h.src == oid) {
 	    casycom_destroy_link_at (di);
@@ -513,6 +532,7 @@ static void casycom_idle (void)
     // Destroy objects marked unused
     for (size_t i = 0; i < _casycom_OMap.size; ++i) {
 	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
+	    DEBUG_PRINTF ("[I] Destroying unused object %hu.%s\n", _casycom_OMap.d[i].h.dest, _casycom_OMap.d[i].h.interface->name);
 	    casycom_destroy_object (&_casycom_OMap.d[i]);
 	    i = (size_t)-1;	// start over because casycom_destroy_object modifies OMap
 	}
