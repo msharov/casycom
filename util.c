@@ -94,7 +94,7 @@ void hexdump (const void* pv, size_t n)
 
 void vector_reserve (void* vv, size_t sz)
 {
-    vector* v = (vector*) vv;
+    CharVector* v = (CharVector*) vv;
     if (v->allocated >= sz)
 	return;
     size_t nsz = v->allocated + !v->allocated;
@@ -108,7 +108,7 @@ void vector_reserve (void* vv, size_t sz)
 void vector_deallocate (void* vv)
 {
     assert (vv);
-    vector* v = (vector*) vv;
+    CharVector* v = (CharVector*) vv;
     xfree (v->d);
     v->size = 0;
     v->allocated = 0;
@@ -117,7 +117,7 @@ void vector_deallocate (void* vv)
 void* vector_emplace (void* vv, size_t ip)
 {
     assert (vv);
-    vector* v = (vector*) vv;
+    CharVector* v = (CharVector*) vv;
     assert (ip <= v->size && "out of bounds insert");
     vector_reserve (vv, v->size+1);
     char* ii = v->d + ip * v->elsize;
@@ -130,12 +130,12 @@ void* vector_emplace (void* vv, size_t ip)
 void vector_insert (void* vv, size_t ip, const void* e)
 {
     void* h = vector_emplace (vv, ip);
-    memcpy (h, e, ((vector*)vv)->elsize);
+    memcpy (h, e, ((CharVector*)vv)->elsize);
 }
 
 void vector_erase_n (void* vv, size_t ep, size_t n)
 {
-    vector* v = (vector*) vv;
+    CharVector* v = (CharVector*) vv;
     char* ei = v->d + ep * v->elsize;
     char* eei = v->d + (ep+n) * v->elsize;
     assert (ep <= v->size && ep+n <= v->size && "out of bounds erase");
@@ -145,13 +145,13 @@ void vector_erase_n (void* vv, size_t ep, size_t n)
 
 void vector_swap (void* vv1, void* vv2)
 {
-    vector* v1 = (vector*) vv1;
-    vector* v2 = (vector*) vv2;
+    CharVector* v1 = (CharVector*) vv1;
+    CharVector* v2 = (CharVector*) vv2;
     assert (v1->elsize == v2->elsize && "can only swap identical vectors");
-    vector t;
-    memcpy (&t, v1, sizeof(vector));
-    memcpy (v1, v2, sizeof(vector));
-    memcpy (v2, &t, sizeof(vector));
+    CharVector t;
+    memcpy (&t, v1, sizeof(CharVector));
+    memcpy (v1, v2, sizeof(CharVector));
+    memcpy (v2, &t, sizeof(CharVector));
 }
 
 //}}}-------------------------------------------------------------------

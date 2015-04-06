@@ -45,12 +45,12 @@ void hexdump (const void* pv, size_t n) noexcept;
 //}}}-------------------------------------------------------------------
 //{{{ vector
 
-typedef struct _vector {
+typedef struct _CharVector {
     char*		d;
     size_t		size;
     size_t		allocated;
     const size_t	elsize;
-} vector;
+} CharVector;
 
 // Declares a vector for the given type.
 // Use the VECTOR macro to instantiate it. Fields are marked const to
@@ -81,17 +81,17 @@ namespace {
 static inline void vector_erase (void* v, size_t ep)
     { vector_erase_n (v, ep, 1); }
 static inline void vector_push_back (void* v, const void* e)
-    { vector_insert (v, ((vector*)v)->size, e); }
+    { vector_insert (v, ((CharVector*)v)->size, e); }
 static inline void* vector_emplace_back (void* v)
-    { return vector_emplace (v, ((vector*)v)->size); }
+    { return vector_emplace (v, ((CharVector*)v)->size); }
 static inline void vector_pop_back (void* v)
-    { vector_erase (v, ((vector*)v)->size-1); }
+    { vector_erase (v, ((CharVector*)v)->size-1); }
 static inline void vector_clear (void* vv)
-    { vector* v = (vector*) vv; v->size = 0; }
+    { CharVector* v = (CharVector*) vv; v->size = 0; }
 static inline void vector_detach (void* vv)
-    { vector* v = (vector*) vv; v->d = NULL; v->size = v->allocated = 0; }
+    { CharVector* v = (CharVector*) vv; v->d = NULL; v->size = v->allocated = 0; }
 static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
-    vector* v = (vector*) vv;
+    CharVector* v = (CharVector*) vv;
     assert (!v->d && "This vector is already attached to something. Detach or deallocate first.");
     assert (e && "Attaching requires a non-null pointer");
     v->d = e; v->size = v->allocated = n;

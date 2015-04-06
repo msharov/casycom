@@ -22,7 +22,7 @@ void casymsg_from_vector (const Proxy* pp, uint32_t imethod, void* body)
 {
     Msg* msg = casymsg_begin (pp, imethod, 0);
     WStm os = casymsg_write (msg);
-    vector* vbody = (vector*) body;
+    CharVector* vbody = (CharVector*) body;
     size_t asz = Align (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
     vector_reserve (vbody, DivRU(asz,vbody->elsize));
     msg->body = vbody->d;
