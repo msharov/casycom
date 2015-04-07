@@ -230,9 +230,9 @@ static void ExternServer_ExternServer_Close (ExternServer* o)
     casycom_mark_unused (o);
 }
 
-static void ExternServer_ExternR_Connected (ExternServer* o)
+static void ExternServer_ExternR_Connected (ExternServer* o, const ExternInfo* einfo)
 {
-    PExternR_Connected (&o->reply);
+    PExternR_Connected (&o->reply, einfo);
 }
 
 static const DExternServer d_ExternServer_ExternServer = {

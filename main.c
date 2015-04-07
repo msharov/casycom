@@ -228,7 +228,7 @@ void casycom_debug_dump_link_table (void)
 {
     DEBUG_PRINTF ("[D] Current link table:\n");
     for (size_t i = 0; i < _casycom_OMap.size; ++i) {
-	const MsgLink* l = &_casycom_OMap.d[i];
+	const MsgLink* UNUSED l = &_casycom_OMap.d[i];
 	DEBUG_PRINTF ("\t%hu -> %hu.%s\t(%p),%x\n", l->h.src, l->h.dest, l->h.interface->name, l->o, l->flags);
     }
 }

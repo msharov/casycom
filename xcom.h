@@ -93,15 +93,30 @@ static inline int PExtern_ConnectLocalIP6 (const Proxy* pp, in_port_t port, cons
 #endif
 //}}}2
 //}}}-------------------------------------------------------------------
+//{{{ ExternInfo
+
+DECLARE_VECTOR_TYPE (InterfaceVector, Interface*);
+typedef struct _ExternInfo {
+    InterfaceVector	interfaces;
+    struct ucred	creds;
+    oid_t		oid;
+    bool		isClient;
+    bool		isUnixSocket;
+} ExternInfo;
+
+const ExternInfo* casycom_extern_info (oid_t eid) noexcept;
+const ExternInfo* casycom_extern_object_info (oid_t oid) noexcept;
+
+//}}}-------------------------------------------------------------------
 //{{{ ExternR
 
-typedef void (*MFN_ExternR_Connected)(void* vo, const Msg* msg);
+typedef void (*MFN_ExternR_Connected)(void* vo, const ExternInfo* einfo);
 typedef struct _DExternR {
     iid_t			interface;
     MFN_ExternR_Connected	ExternR_Connected;
 } DExternR;
 
-void PExternR_Connected (const Proxy* pp) noexcept NONNULL();
+void PExternR_Connected (const Proxy* pp, const ExternInfo* einfo) noexcept NONNULL();
 
 extern const Interface i_ExternR;
 

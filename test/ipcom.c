@@ -164,12 +164,27 @@ static void App_Server (App* app)
 // here. This is the appropriate place to check that all the imports are satisfied,
 // authenticate the connection (if using a UNIX socket), and create objects.
 //
-static void App_ExternR_Connected (App* app)
+static void App_ExternR_Connected (App* app, const ExternInfo* einfo)
 {
     // Both directly connected Extern objects and ExternServer objects send this reply.
     if (!app->serverPid)
 	return;	// log only the client side
-    printf ("Connected to server\n");
+    // ExternInfo contains the list of interfaces available on this connection, so
+    // here is the right place to check that the expected interfaces can be created.
+    if (einfo->interfaces.size < 1 || einfo->interfaces.d[0] != &i_Ping) {
+	casycom_error ("connected to server that does not support the Ping interface");
+	return;
+    }
+    printf ("Connected to server. Imported %zu interface: %s\n", einfo->interfaces.size, einfo->interfaces.d[0]->name);
+    // ExternInfo can be obtained outside this function with casycom_extern_info
+    // using the Extern object oid, or with casycom_extern_object_info, using the
+    // oid of the COMRelay connecting an object to an Extern object (the COMRelay
+    // sends the messages originating from a remote client, so the served object
+    // constructor receives a message from it). The ExternInfo also specifies
+    // whether the connection is a UNIX socket (allowing passing fds and credentials),
+    // and client process credentials, if available. This information may be
+    // useful for choosing file transmission mode, or for authentication.
+    //
     // To create a remote object, create a proxy object for it
     // (This is exactly the same as accessing a local object)
     app->pingp = casycom_create_proxy (&i_Ping, oid_App);
