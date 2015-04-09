@@ -65,6 +65,8 @@ extern const Factory f_Timer;
 
 bool		Timer_RunTimer (int toWait) noexcept;
 casytimer_t	Timer_NowMS (void) noexcept;
+size_t		Timer_WatchListSize (void) noexcept;
+size_t		Timer_WatchListForPoll (struct pollfd* fds, size_t fdslen, int* timeout) noexcept NONNULL(1);
 
 //----------------------------------------------------------------------
 // PTimer inlines

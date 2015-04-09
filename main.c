@@ -130,6 +130,16 @@ static void casycom_install_signal_handlers (void)
 }
 #undef S
 
+static inline void casycom_send_signal_message (void)
+{
+    if (!_casycom_LastSignal)
+	return;
+    alarm (0);	// the alarm was set to check for infinite loops
+    if (_casycom_PApp.interface)
+	PApp_Signal (&_casycom_PApp, _casycom_LastSignal, _casycom_LastChildPid, _casycom_LastChildStatus);
+    _casycom_LastSignal = 0;
+}
+
 //}}}-------------------------------------------------------------------
 //{{{ Proxies and link table
 
@@ -290,9 +300,18 @@ static void* casycom_create_link_object (MsgLink* ml, const Msg* msg)
 {
     assert (!ml->o && "internal error: object already exists");
     // Create using the otable
-    DEBUG_PRINTF ("[T] Creating object %hu.%s\n", ml->h.dest, msg->h.interface->name);
+    DEBUG_PRINTF ("[T] Creating object %hu.%s\n", ml->h.dest, casymsg_interface_name(msg));
     void* o = ml->factory->Create (msg);
     assert (o && "object Create method must return a valid object or die");
+    return o;
+}
+
+void* casycom_create_object (const iid_t iid)
+{
+    Proxy op = casycom_create_proxy (iid, oid_Broadcast);
+    Msg* msg = casymsg_begin (&op, method_CreateObject, 0);
+    void* o = casycom_find_or_create_destination (msg)->o;
+    casymsg_free (msg);
     return o;
 }
 
@@ -333,6 +352,17 @@ static void casycom_destroy_object (MsgLink* ol)
 	if (_casycom_OMap.d[di].h.src == oid) {
 	    casycom_destroy_link_at (di);
 	    di = (size_t)-1;	// recursion will modify OMap, so have to start over
+	}
+    }
+}
+
+static inline void casycom_destroy_unused_objects (void)
+{
+    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
+	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
+	    DEBUG_PRINTF ("[I] Destroying unused object %hu.%s\n", _casycom_OMap.d[i].h.dest, _casycom_OMap.d[i].h.interface->name);
+	    casycom_destroy_object (&_casycom_OMap.d[i]);
+	    i = (size_t)-1;	// start over because casycom_destroy_object modifies OMap
 	}
     }
 }
@@ -511,6 +541,12 @@ void casycom_quit (int exitCode)
     _casycom_Quitting = true;
 }
 
+/// Returns the current exit code
+int casycom_exit_code (void)
+    { return _casycom_ExitCode; }
+bool casycom_is_quitting (void)
+    { return _casycom_Quitting; }
+
 /// The main event loop. Returns exit code.
 int casycom_main (void)
 {
@@ -522,21 +558,8 @@ int casycom_main (void)
 static void casycom_idle (void)
 {
     DEBUG_PRINTF ("[I]=============================================================\n");
-    // Check if a signal has fired
-    if (_casycom_LastSignal) {
-	alarm (0);	// the alarm was set to check for infinite loops
-	if (_casycom_PApp.interface)
-	    PApp_Signal (&_casycom_PApp, _casycom_LastSignal, _casycom_LastChildPid, _casycom_LastChildStatus);
-	_casycom_LastSignal = 0;
-    }
-    // Destroy objects marked unused
-    for (size_t i = 0; i < _casycom_OMap.size; ++i) {
-	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
-	    DEBUG_PRINTF ("[I] Destroying unused object %hu.%s\n", _casycom_OMap.d[i].h.dest, _casycom_OMap.d[i].h.interface->name);
-	    casycom_destroy_object (&_casycom_OMap.d[i]);
-	    i = (size_t)-1;	// start over because casycom_destroy_object modifies OMap
-	}
-    }
+    casycom_send_signal_message();	// Check if a signal has fired
+    casycom_destroy_unused_objects();	// Destroy objects marked unused
     // Process timers and fd waits
     int timerWait = -1;
     if (_casycom_InputQueue.size + _casycom_OutputQueue.size)
@@ -547,6 +570,16 @@ static void casycom_idle (void)
 	DEBUG_PRINTF ("[E] Ran out of messages. Quitting.\n");
 	casycom_quit (EXIT_SUCCESS);
     }
+}
+
+/// Do one message loop iteration; for non-framework operation
+/// Returns false when all queues are empty
+bool casycom_loop_once (void)
+{
+    Timer_RunTimer (0);			// Check watched fds
+    casycom_do_message_queues();	// Process any resulting messages
+    casycom_destroy_unused_objects();	// Destroy objects marked unused
+    return _casycom_InputQueue.size+_casycom_OutputQueue.size;
 }
 
 /// Create error to be handled at next casycom_forward_error call

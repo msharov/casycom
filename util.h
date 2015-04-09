@@ -15,6 +15,7 @@ extern "C" {
 #else
     #define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
 #endif
+#define ArrayBlock(a)		a, ArraySize(a)
 
 static inline constexpr size_t Floor (size_t n, size_t grain)	{ return n - n % grain; }
 static inline constexpr size_t Align (size_t n, size_t grain)	{ return Floor (n+grain-1, grain); }
@@ -106,7 +107,9 @@ static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
 
 // Systemd socket activation support
 enum { SD_LISTEN_FDS_START = 3 };
-unsigned sd_listen_fds (void);
+unsigned sd_listen_fds (void) noexcept;
+
+const char* find_exe_in_path (const char* exe, char* exepath, size_t exepathlen) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {

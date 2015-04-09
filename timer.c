@@ -169,6 +169,33 @@ bool Timer_RunTimer (int toWait)
     return _timer_WatchList.size;
 }
 
+size_t Timer_WatchListSize (void)
+{
+    return _timer_WatchList.size;
+}
+
+size_t Timer_WatchListForPoll (struct pollfd* fds, size_t fdslen, int* timeout)
+{
+    size_t nFds = 0;
+    casytimer_t nearest = TIMER_MAX;
+    for (size_t i = 0; i < _timer_WatchList.size; ++i) {
+	const Timer* we = _timer_WatchList.d[i];
+	if (we->nextfire < nearest)
+	    nearest = we->nextfire;
+	if (we->fd >= 0 && we->cmd != WATCH_STOP && nFds < fdslen) {
+	    fds[nFds].fd = we->fd;
+	    fds[nFds].events = we->cmd;
+	    fds[nFds].revents = 0;
+	    ++nFds;
+	}
+    }
+    if (timeout) {
+	casytimer_t now = Timer_NowMS();
+        *timeout = (now < nearest ? (int)(nearest - now) : -1);
+    }
+    return nFds;
+}
+
 /// Returns current time in milliseconds
 casytimer_t Timer_NowMS (void)
 {

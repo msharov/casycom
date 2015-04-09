@@ -6,4 +6,5 @@
 #pragma once
 #include "casycom/main.h"
 #include "casycom/app.h"
+#include "casycom/timer.h"
 #include "casycom/xsrv.h"

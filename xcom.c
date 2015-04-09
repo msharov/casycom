@@ -162,7 +162,7 @@ int PExtern_ConnectLocal (const Proxy* pp, const char* path, const iid_t* import
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s", path)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), "%s", path)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }
@@ -175,7 +175,7 @@ int PExtern_ConnectSystemLocal (const Proxy* pp, const char* sockname, const iid
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), _PATH_VARRUN "%s", sockname)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), _PATH_VARRUN "%s", sockname)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }
@@ -191,7 +191,7 @@ int PExtern_ConnectUserLocal (const Proxy* pp, const char* sockname, const iid_t
     const char* runtimeDir = getenv ("XDG_RUNTIME_DIR");
     if (!runtimeDir)
 	runtimeDir = _PATH_TMP;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s/%s", runtimeDir, sockname)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), "%s/%s", runtimeDir, sockname)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }
@@ -679,7 +679,7 @@ static bool Extern_ValidateMessage (Extern* o, Msg* msg)
 	// The remote end sets the extid
 	conn->extid = msg->extid;
 	PCOM_CreateObject (&conn->proxy);
-	DEBUG_PRINTF ("[X] New incoming connection %hu -> %hu.%s, extid %hu\n", conn->proxy.src, conn->proxy.dest, msg->h.interface->name, conn->extid);
+	DEBUG_PRINTF ("[X] New incoming connection %hu -> %hu.%s, extid %hu\n", conn->proxy.src, conn->proxy.dest, casymsg_interface_name(msg), conn->extid);
     }
     // Translate the extid into local addresses
     msg->h.src = conn->proxy.src;
@@ -755,7 +755,7 @@ static void Extern_QueueOutgoingMessage (Extern* o, Msg* msg)
 	    conn->proxy = casycom_create_proxy_to (&i_COM, o->info.oid, msg->h.dest);
 	    // Extids are assigned from oid with side-based offset
 	    conn->extid = msg->h.dest + (o->info.isClient ? extid_ClientBase : extid_ServerBase);
-	    DEBUG_PRINTF ("[X] New outgoing connection %hu -> %hu.%s, extid %hu\n", msg->h.src, msg->h.dest, msg->h.interface->name, conn->extid);
+	    DEBUG_PRINTF ("[X] New outgoing connection %hu -> %hu.%s, extid %hu\n", msg->h.src, msg->h.dest, casymsg_interface_name(msg), conn->extid);
 	}
 	msg->extid = conn->extid;
     }
@@ -775,8 +775,8 @@ static bool Extern_Writing (Extern* o)
 	hbuf.h.extid = msg->extid;
 	hbuf.h.fdoffset = msg->fdoffset;
 	char* phstr = &hbuf.d[sizeof(hbuf.h)];
-	const char* iname = msg->h.interface->name;
-	const char* mname = msg->h.interface->method [msg->imethod];
+	const char* iname = casymsg_interface_name(msg);
+	const char* mname = casymsg_method_name(msg);
 	const char* msig = strnext (mname);
 	assert (sizeof(ExtMsgHeader)+strlen(iname)+1+strlen(mname)+1+strlen(msig)+1 <= MAX_MSG_HEADER_SIZE && "the interface and method names for this message are too long to export");
 	char* phend = stpcpy (stpcpy (stpcpy (phstr, iname)+1, mname)+1, msig)+1;
@@ -932,7 +932,7 @@ static void COMRelay_COM_Message (void* vo, Msg* msg)
     if (!o->localp.interface)
 	o->localp = casycom_create_proxy (msg->h.interface, msg->h.dest);
     if (!o->pExtern)
-	return casycom_error ("could not find outgoing connection for interface %s", msg->h.interface->name);
+	return casycom_error ("could not find outgoing connection for interface %s", casymsg_interface_name(msg));
     if (msg->h.src != o->localp.dest)	// Incoming message - forward to local
 	return casymsg_forward (&o->localp, msg);
     // Outgoing message - queue in extern

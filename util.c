@@ -48,7 +48,7 @@ void casycom_backtrace (void)
 {
 #if HAVE_EXECINFO_H
     void* frames [64];
-    int nFrames = backtrace (frames, ArraySize(frames));
+    int nFrames = backtrace (ArrayBlock(frames));
     if (nFrames <= 1)
 	return;	// Can happen if there is no debugging information
     char** syms = backtrace_symbols (frames, nFrames);
@@ -164,6 +164,25 @@ unsigned sd_listen_fds (void)
 	return 0;
     e = getenv("LISTEN_FDS");
     return e ? strtoul (e, NULL, 10) : 0;
+}
+
+const char* find_exe_in_path (const char* exe, char* exepath, size_t exepathlen)
+{
+    const char* pathenv = getenv("PATH");
+    if (!pathenv)
+	pathenv = "/usr/bin";
+    char path [PATH_MAX];
+    char c, *pend = path;
+    do {
+	*pend++ = ((c = *pathenv++) == ':' ? 0 : c);
+    } while (c);
+    for (const char *p = path; p < pend; p = strnext(p)) {
+	snprintf (exepath, exepathlen, "%s/%s", p, exe);
+	if (access (exepath, X_OK) == 0)
+	    break;
+	exepath[0] = 0;
+    }
+    return exepath[0] ? exepath : NULL;
 }
 
 //}}}-------------------------------------------------------------------

@@ -107,7 +107,7 @@ int PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exp
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s", path)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), "%s", path)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }
@@ -120,7 +120,7 @@ int PExternServer_BindSystemLocal (const Proxy* pp, const char* sockname, const 
 {
     struct sockaddr_un addr;
     addr.sun_family = PF_LOCAL;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), _PATH_VARRUN "%s", sockname)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), _PATH_VARRUN "%s", sockname)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }
@@ -136,7 +136,7 @@ int PExternServer_BindUserLocal (const Proxy* pp, const char* sockname, const ii
     const char* runtimeDir = getenv ("XDG_RUNTIME_DIR");
     if (!runtimeDir)
 	runtimeDir = _PATH_TMP;
-    if ((int) ArraySize(addr.sun_path) <= snprintf (addr.sun_path, ArraySize(addr.sun_path), "%s/%s", runtimeDir, sockname)) {
+    if ((int) ArraySize(addr.sun_path) <= snprintf (ArrayBlock(addr.sun_path), "%s/%s", runtimeDir, sockname)) {
 	errno = ENAMETOOLONG;
 	return -1;
     }

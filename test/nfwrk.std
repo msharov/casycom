@@ -1,0 +1,13 @@
+Connected to server.
+Ping 1 reply received; count 1
+Ping 1 reply received; count 2
+Ping 2 reply received; count 3
+Ping 3 reply received; count 4
+Ping 4 reply received; count 5
+Created Ping 6
+Ping: 1, 1 total
+Ping: 1, 2 total
+Ping: 2, 3 total
+Ping: 3, 4 total
+Ping: 4, 5 total
+Destroy Ping

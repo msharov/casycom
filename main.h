@@ -23,11 +23,15 @@ void	casycom_reset (void) noexcept;
 void	casycom_framework_init (const Factory* oapp, unsigned argc, const char* const* argv) noexcept NONNULL(1);
 int	casycom_main (void) noexcept;
 void	casycom_quit (int exitCode) noexcept;
+bool	casycom_is_quitting (void) noexcept;
+int	casycom_exit_code (void) noexcept;
+bool	casycom_loop_once (void) noexcept;
 
 typedef void* (pfn_object_init)(const Msg* msg);
 
 void	casycom_register (const Factory* o) noexcept NONNULL();
 void	casycom_register_default (const Factory* o) noexcept;
+void*	casycom_create_object (const iid_t iid) noexcept NONNULL();
 iid_t	casycom_interface_by_name (const char* iname) noexcept NONNULL();
 Proxy	casycom_create_proxy (iid_t iid, oid_t src) noexcept;
 Proxy	casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest) noexcept;
