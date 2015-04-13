@@ -9,6 +9,7 @@ OBJS	:= $(addprefix $O,$(SRCS:.c=.o))
 DEPS	:= ${OBJS:.o=.d}
 CONFS	:= Config.mk config.h
 ONAME   := $(notdir $(abspath $O))
+DOCS	:= $(notdir $(wildcard doc/*))
 
 ################ Compilation ###########################################
 
@@ -46,7 +47,7 @@ uninstall-incs:
 	@if [ -d ${INCDIR}/${NAME} ]; then\
 	    echo "Removing headers ...";\
 	    rm -f ${INCSI};\
-	    rmdir ${INCDIR}/${NAME};\
+	    rmdir -p --ignore-fail-on-non-empty ${INCDIR}/${NAME};\
 	fi
 endif
 ifdef LIBDIR
@@ -60,6 +61,21 @@ uninstall-lib:
 	@if [ -f ${LIBAI} ]; then\
 	    echo "Removing ${LIBAI} ...";\
 	    rm -f ${LIBAI};\
+	fi
+endif
+ifdef DOCDIR
+PKGDOCDIR	:= ${DOCDIR}/${NAME}
+DOCSI		:= $(addprefix ${PKGDOCDIR}/,${DOCS})
+install:	${DOCSI}
+${DOCSI}: ${PKGDOCDIR}/%: doc/%
+	@echo "Installing $@ ..."
+	@${INSTALLDATA} $< $@
+uninstall:	uninstall-docs
+uninstall-docs:
+	@if [ -d ${PKGDOCDIR} ]; then\
+	    echo "Removing documentation ...";\
+	    rm -f ${DOCSI};\
+	    rmdir -p --ignore-fail-on-non-empty ${PKGDOCDIR};\
 	fi
 endif
 

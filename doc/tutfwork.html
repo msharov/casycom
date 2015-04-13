@@ -1,0 +1,290 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Casycom - Basic Object Creation and Messaging Tutorial</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="index" type="text/xhtml+xml" href="index.html" />
+    <link rel="next" type="text/xhtml+xml" href="tutipcom.html" />
+    <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
+    <meta name="Description" content="Basic casycom object creation and messaging tutorial" />
+    <meta name="Keywords" content="casycom, tutorial" />
+    <meta name="author" content="Mike Sharov" />
+    <meta name="date" content="2015-04-11" />
+</head>
+<body>
+<div id="pagectr"><div id="header">
+
+<h1>Objects &amp; Messages</h1>
+
+</div><div id="content">
+<p>
+Casycom is a component object framework, dealing with creating and
+accessing objects through interfaces with messages.  This tutorial
+explains how to define an interface, implement an object server for it,
+create an object, and call a method on it. You can find the full source
+code described here in <tt>test/ping.h,c</tt> and <tt>test/fwork.c</tt>.
+To use casycom in your application, include <tt>casycom.h</tt> and link
+with <tt>libcasycom.a</tt>.
+</p>
+
+<h2>Interfaces</h2>
+<p>
+An interface to a casycom object is a set of methods that can be used
+by a client object to connect to the server object implementing that
+interface. This example defines a <tt>Ping</tt> interface that receives
+a number and sends it back.
+</p><pre>
+const Interface i_Ping = {
+    .name	= "Ping",
+    .method	= { "Ping\0u", NULL }
+    .dispatch	= Ping_Dispatch,
+};
+</pre><p>
+The <tt>Ping</tt> interface is named "Ping" and contains a single method
+named <tt>Ping</tt>, taking a <tt>uint32_t</tt>. The method list is a
+<tt>NULL</tt>-terminated array of method names. Each method consists of
+its name, here "Ping", and is concatenated with its signature, separated
+from it by a zero character. The signature describes the arguments passed
+to the method as a list of characters denoting types. Here 'u' means
+<tt>uint32_t</tt>. A full list of types and their corresponding characters
+can be found in the <a href="protocol.html">protocol specification</a>.
+Finally, the dispatch function is needed to read the arguments from the
+body of a received message and to pass them on to the implementation of
+the method. The interface can be implemented by many different objects,
+but the argument reading code in the dispatch function is always the
+same, so the same one can be used by all of them when given a dispatch
+table containing the method implementation pointers.
+</p><pre>
+typedef void (*MFN_Ping_Ping)(void* o, uint32_t v);
+typedef struct _DPing {
+    const Interface*	interface;
+    MFN_Ping_Ping	Ping_Ping;
+} DPing;
+</pre><p>
+To implement <tt>Ping_Dispatch</tt>, a definition of the dispatch table
+is needed, containing function pointers for each interface method. Here
+<tt>MFN_Ping_Ping</tt> defines a pointer to a function implementing the
+<tt>Ping</tt> method of the <tt>Ping</tt> interface. This scoping naming
+convention is used throughout casycom internals to make it clear to which
+object and interface each function belongs.
+</p><pre>
+enum { method_Ping_Ping };
+
+void Ping_Dispatch (const DPing* dtable, void* o, const Msg* msg)
+{
+    if (msg-&gt;imethod == method_Ping_Ping) {
+	RStm is = casymsg_read (msg);
+	uint32_t v = casystm_read_uint32 (&amp;is);
+	dtable-&gt;Ping_Ping (o, v);
+    } else
+	casymsg_default_dispatch (dtable, o, msg);
+}
+</pre><p>
+A dispatch function takes the dispatch table, defined above, the object
+pointer <tt>o</tt>, and the message being delivered.  The <tt>imethod</tt>
+field in the message header contains the index of the method being
+called, indexed into the <tt>.method</tt> array in the interface. It is
+convenient to define an enum for them. If the method index is invalid,
+it should be passed to <tt>casymsg_default_dispatch</tt>, where error
+checking and debug tracing will occur.
+</p><p>
+To read from a message, create a reading stream using
+<tt>casymsg_read</tt>.  The arguments can then be read, as described in
+the method signature, using the <tt>casystm_read_</tt> functions defined
+in <tt>stm.h</tt>.  When all arguments have been read, pass them to the
+implementation function through the pointer in the dispatch table.
+</p><p>
+The <tt>Ping</tt> interface will send a reply message, using a <tt>PingR</tt>
+interface. Its dispatch table and function are implemented in the same
+manner as above.
+</p><pre>
+const Interface i_PingR = {
+    .name	= "PingR",
+    .method	= { "Ping\0u", NULL }
+    .dispatch	= PingR_Dispatch,
+};
+</pre><p>
+</p>
+
+<h2>Proxies</h2>
+<p>
+An object proxy is used to call interface methods. It is a description
+of a message link between two objects, the client and the server, or
+the source and destination. In C++ there would have been actual proxy
+objects, containing method calls and usable as if they were the actual
+remote object. In C, all proxies are the same type, <tt>Proxy</tt> and
+interface method proxies are defined at global scope.
+</p><pre>
+void PPing_Ping (const Proxy* pp, uint32_t v)
+{
+    Msg* msg = casymsg_begin (pp, method_PingR_Ping, 4);
+    WStm os = casymsg_write (msg);
+    casystm_write_uint32 (&amp;os, v);
+    casymsg_end (msg);
+}
+</pre><p>
+The <tt>Ping</tt> interface has only one method, and so the proxy is
+defined with one proxy function. Note the scope naming, and the P prefix
+that indicates that this is the proxy rather than the actual object.
+The proxy function's purpose is to create a message to the remote object
+and to write the passed in arguments into the message. First, the message
+is created using <tt>casymsg_begin</tt> that takes the <tt>Proxy</tt>
+pointer containing the destination address, the method index matching the
+one in the dispatch function, and the size of the message. The message
+body is then written using a write stream. See <tt>stm.h</tt> for more
+variants of <tt>casystm_write_</tt> for writing other types. When the
+writing is complete, <tt>casymsg_end</tt> will put the message in the
+output queue to be received by the remote object.
+</p><p>
+The proxy for the <tt>PingR</tt> interface is implemented identically.
+</p>
+
+<h2>Object Server</h2>
+<p>
+Messages created by a proxy are delivered to an object implementing the
+requested interface. The casycom framework uses a factory pattern to
+register and instantiate these objects.
+</p><pre>
+const DPing d_Ping_Ping = {
+    .interface = &amp;i_Ping,
+    DMETHOD (Ping, Ping_Ping)
+};
+const Factory f_Ping = {
+    .Create = Ping_Create,
+    .Destroy = Ping_Destroy,
+    .dtable = { &amp;d_Ping_Ping, NULL }
+};
+</pre><p>
+An object factory must contain the constructor, destructor, and the
+<tt>NULL</tt> terminated list of interfaces the created object will
+support. To support an interface, all methods in its dispatch table
+must be implemented. The dispatch table pointers then form the
+supported interfaces list.
+</p><pre>
+typedef struct _Ping {
+    Proxy	reply;
+} Ping;
+
+void* Ping_Create (const Msg* msg)
+{
+    Ping* o = (Ping*) xalloc (sizeof(Ping));
+    o-&gt;reply = casycom_create_reply_proxy (&amp;i_PingR, msg);
+    return o;
+}
+
+void Ping_Destroy (void* o)
+{
+    xfree (o);
+}
+
+void Ping_Ping_Ping (Ping* o, uint32_t u)
+{
+    PPingR_Ping (&amp;o-&gt;reply, u);
+}
+</pre><p>
+<tt>Ping</tt> struct defines the object that will be created by this
+factory. <tt>Ping_Create</tt> must return a valid object pointer.
+Here it is allocated on the heap using <tt>xalloc</tt>, which will
+check for out-of-memory conditions (resulting in an error message
+and exit) and zero the allocated block. The object can then be freed
+in the destructor using <tt>xfree</tt>.
+</p><p>
+This object will receive the <tt>Ping</tt> interface messages and will
+send replies using the <tt>PingR</tt> interface. It is convenient to
+setup the reply proxy in the constructor because it gets the message
+creating the object, the header of which contains its source, allowing
+<tt>casycom_create_reply_proxy</tt> to create the reverse of the link.
+</p><p>
+<tt>Ping_Ping_Ping</tt> excitedly names itself the implementation of the
+<tt>Ping</tt> method of the <tt>Ping</tt> interface on the <tt>Ping</tt>
+object, using standard scope naming. It is the one inserted into the
+dispatch table using the <tt>DMETHOD</tt> macro. The macro and the cast it
+contains allow <tt>Ping_Ping_Ping</tt> to take a <tt>Ping*</tt> object,
+rather than a <tt>void*</tt> as required by the dtable. Alternatively,
+<tt>Ping_Ping_Ping</tt> could have taken <tt>void*</tt>, cast internally,
+and had preserved some type checking in the dispatch table.
+</p><p>
+In <tt>Ping_Ping_Ping</tt> the way of calling a remote object with
+a proxy is demonstrated by calling the caller's <tt>PingR.Ping</tt>
+implementation using the <tt>PingR</tt> proxy function.
+</p>
+
+<h2>The App Object</h2>
+<p>
+casycom is an object-oriented framework, and requires all messages to
+be sent between objects. The first message thus needs to come from the
+first object, named the <tt>App</tt> and implementing the <tt>App</tt>
+interface.
+</p><pre>
+typedef struct _App {
+    Proxy	pingp;
+} App;
+
+void* App_Create (const Msg* msg)
+{
+    static App app = {PROXY_INIT,0};
+    if (!app.pingp.interface) {
+	casycom_register (&amp;f_Ping);
+	app.pingp = casycom_create_proxy (&amp;i_Ping, oid_App);
+    }
+    return &amp;app;
+}
+void App_Destroy (void* o) {}
+</pre><p>
+An <tt>App</tt> is created like any other object, using a factory. Because
+there is only one <tt>App</tt> object per process, it is appropriate to
+use the singleton pattern to create it. Static object is created in and
+returned from the constructor, while the destructor needs do nothing.
+When the constructor is called for the first time, it registers the
+factory for the <tt>Ping</tt> server object defined above, and creates a
+proxy to it. <tt>casycom_create_proxy</tt> creates an entirely new link,
+rather than reversing an existing one, so it needs the source object's
+id. Object ids are unique numbers assigned to each instance of an
+object. The <tt>App</tt> object always has id equal to <tt>oid_App</tt>.
+Other objects can get their oid in the constructor from the creating
+message header <tt>msg-&gt;h.dest</tt>.
+</p><pre>
+void App_App_Init (App* app, unsigned argc, const char* const* argv)
+{
+    PPing_Ping (&amp;app-&gt;pingp, 1);
+}
+const DApp d_App_App = {
+    .interface = &amp;i_App,
+    DMETHOD (App, App_Init)
+};
+</pre><p>
+Every <tt>App</tt> object must implement the <tt>App</tt> interface,
+containting the <tt>Init</tt> method. It is the first one called after
+the object creation and takes place of the usual <tt>main</tt>. Here it
+is used to send the initial <tt>Ping</tt> message.
+</p><pre>
+void App_PingR_Ping (App* app, uint32_t u)
+{
+    casycom_quit (EXIT_SUCCESS);
+}
+const DPingR d_App_PingR = {
+    .interface = &amp;i_PingR,
+    DMETHOD (App, PingR_Ping)
+};
+</pre><p>
+The <tt>App</tt> object will also receive the <tt>PingR</tt> reply, so
+that interface must be implemented as well. Once the reply is received,
+quit is requested with <tt>casycom_quit</tt>, taking the process exit
+code.
+</p><pre>
+const Factory f_App = {
+    .Create	= App_Create,
+    .Destroy	= App_Destroy,
+    .dtable	= { &amp;d_App_App, &amp;d_App_PingR, NULL }
+};
+CASYCOM_MAIN (f_App)
+</pre><p>
+Finally, the <tt>App</tt> factory can be defined, and passed to the
+<tt>CASYCOM_MAIN</tt> macro that will generate a framework standard
+<tt>main</tt>. When run, this example will create one <tt>Ping</tt>
+object, send a message to it, receive a reply, and quit, thus concluding
+the tutorial.
+</p>
+</div></div>
+</body>
+</html>

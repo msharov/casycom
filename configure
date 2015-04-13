@@ -133,6 +133,7 @@ Installation directories:
   --localstatedir=DIR	modifiable data [PREFIX/var]
   --includedir=DIR	header files [PREFIX/include]
   --libdir=DIR		libraries [PREFIX/lib]
+  --docdir=DIR		documentation [PREFIX/doc]
   --infodir=DIR		info docs [PREFIX/info]
   --mandir=DIR		man pages [PREFIX/man]
   --builddir=DIR	location for compiled objects [/tmp/$USER/make]
@@ -184,7 +185,7 @@ s/@datadir@/$ac_var_datarootdir/g
 s/@sysconfdir@/$ac_var_prefix\/etc/g
 s/@localstatedir@/$ac_var_prefix\/var/g
 s/@includedir@/${ac_var_includedir:=$ac_var_prefix\/include}/g
-s/@docdir@/${ac_var_docdir:=$ac_var_datarootdir\/doc\/$PKG_NAME}/g
+s/@docdir@/${ac_var_docdir:=$ac_var_datarootdir\/doc}/g
 s/@infodir@/$ac_var_datarootdir\/info/g
 s/@libdir@/${ac_var_libdir:=$ac_var_prefix\/lib}/g
 s/@mandir@/$ac_var_datarootdir\/man/g

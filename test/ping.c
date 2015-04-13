@@ -35,7 +35,7 @@ static void Ping_Dispatch (const DPing* dtable, void* o, const Msg* msg)
     if (msg->imethod == method_Ping_Ping) {	// Use constant defined above
 	RStm is = casymsg_read (msg);
 	uint32_t v = casystm_read_uint32 (&is);
-	dtable->Ping_Ping (o, v, msg);
+	dtable->Ping_Ping (o, v);
     } else	// To handle errors, call the default dispatch for unknown methods
 	casymsg_default_dispatch (dtable, o, msg);
 }
@@ -67,7 +67,7 @@ static void PingR_Dispatch (const DPingR* dtable, void* o, const Msg* msg)
     if (msg->imethod == method_PingR_Ping) {
 	RStm is = casymsg_read (msg);
 	uint32_t v = casystm_read_uint32 (&is);
-	dtable->PingR_Ping (o, v, msg);
+	dtable->PingR_Ping (o, v);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }

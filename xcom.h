@@ -32,6 +32,7 @@ int  PExtern_Connect (const Proxy* pp, const struct sockaddr* addr, socklen_t ad
 int  PExtern_ConnectLocal (const Proxy* pp, const char* path, const iid_t* importedInterfaces) noexcept NONNULL();
 int  PExtern_ConnectUserLocal (const Proxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
 int  PExtern_ConnectSystemLocal (const Proxy* pp, const char* sockname, const iid_t* importedInterfaces) noexcept NONNULL();
+int  PExtern_LaunchPipe (const Proxy* pp, const char* exe, const char* arg, const iid_t* importedInterfaces) noexcept NONNULL(1,3);
 
 extern const Interface i_Extern;
 

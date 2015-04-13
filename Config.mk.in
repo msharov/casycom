@@ -23,7 +23,7 @@ INSTALLLIB	:= ${INSTALLDATA}
 BINDIR		:= @bindir@
 INCDIR		:= @includedir@
 LIBDIR		:= @libdir@
-MANDIR		:= @mandir@
+DOCDIR		:= @docdir@
 
 ################ Compiler options ####################################
 

@@ -199,6 +199,28 @@ int PExtern_ConnectUserLocal (const Proxy* pp, const char* sockname, const iid_t
     return PExtern_Connect (pp, (const struct sockaddr*) &addr, sizeof(addr), importedInterfaces);
 }
 
+int PExtern_LaunchPipe (const Proxy* pp, const char* exe, const char* arg, const iid_t* importedInterfaces)
+{
+    int socks[2];
+    if (0 > socketpair (PF_LOCAL, SOCK_STREAM| SOCK_NONBLOCK, 0, socks))
+	return -1;
+    int fr = fork();
+    if (fr < 0) {
+	close (socks[0]);
+	close (socks[1]);
+	return -1;
+    }
+    if (fr == 0) {	// Server side
+	close (socks[0]);
+	dup2 (socks[1], STDIN_FILENO);
+	execlp (exe, arg, NULL);
+    } else {
+	close (socks[1]);
+	PExtern_Open (pp, socks[0], EXTERN_CLIENT, importedInterfaces, NULL);
+    }
+    return socks[0];
+}
+
 //}}}-------------------------------------------------------------------
 //{{{ PExternR
 

@@ -1,0 +1,234 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Casycom - Interprocess Communication</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="index" type="text/xhtml+xml" href="index.html" />
+    <link rel="prev" type="text/xhtml+xml" href="tutfwork.html" />
+    <link rel="next" type="text/xhtml+xml" href="tutnfwrk.html" />
+    <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
+    <meta name="Description" content="Interprocess communication tutorial" />
+    <meta name="Keywords" content="casycom, tutorial" />
+    <meta name="author" content="Mike Sharov" />
+    <meta name="date" content="2015-04-11" />
+</head>
+<body>
+<div id="pagectr"><div id="header">
+
+<h1>Interprocess</h1>
+
+</div><div id="content">
+<p>
+One important benefit of data coupling objects through messaging is
+the ability to use objects in other processes or on other computers.
+This tutorial demonstrates how object servers are created and accessed
+in casycom through a socket.
+</p><p>
+The first question to consider is how object servers are found and
+launched. Other COM frameworks typically solve this through a specialized
+service that does just that. DBUS, for example, has the dbus-daemon
+service through which all messages must be routed and which will launch
+registered object servers as needed. Casycom does not use a central
+message hub service like this (although one could be implemented),
+but instead expects applications to connect to object servers through
+well-known sockets. The servers themselves can either be started at boot
+time, launched by the applications that need them, or by using systemd
+socket activation. This last method is the easiest and the preferred one.
+Systemd is already adopted by a majority of Linux distributions and some
+of the remainder also use an init that can do socket activation. Lacking
+that, a standard launching service could be implemented to do this.
+</p>
+
+<h2>Client Side</h2>
+<p>
+Interprocess communication in casycom needs to be enabled explicitly,
+because over three quarters of the library is pulled in when it is
+used. Sometimes it is useful to just use a local object message loop,
+and get it for a very low cost of about 3k of object code linked in.
+So, to begin using external objects, <tt>casycom_enable_externs()</tt>
+needs to be called, likely in <tt>App_Init</tt>.
+</p><p>
+Connections to external objects are managed by an <tt>Extern</tt>
+object, of which one is created per socket. On the client side, it
+is sufficient. On the server side, the socket is being listened on
+will generate the actual connection sockets, so a separate object,
+<tt>ExternServer</tt>, is needed to keep track of them and to listen
+for clients on the socket.
+</p><pre>
+const iid_t eil_Ping[] = { &amp;i_Ping, NULL };
+
+void App_App_Init (App* app, unsigned argc, char* const* argv)
+{
+    casycom_enable_externs();
+    app-&gt;externp = casycom_create_proxy (&amp;i_Extern, oid_App);
+    if (0 &gt; PExtern_ConnectUserLocal (&amp;app-&gt;externp, "ipcom.socket", eil_Ping))
+	casycom_error ("Extern_ConnectUserLocal: %s", strerror(errno));
+}
+</pre><p>
+The client side creates a proxy to an <tt>Extern</tt> object
+and asks it to connect to a specific socket, here "ipcom.socket".
+<tt>PExtern_ConnectUserLocal</tt> will connect to the socket in the
+user's runtime directory, the standard for user socket location, obtained
+from the environment variable <tt>XDG_RUNTIME_DIR</tt>, typically set
+to <tt>/run/user/&lt;uid&gt;</tt>. Other connect call variants can be
+found in <tt>xcom.h</tt>.
+</p><p>
+The third argument to <tt>_Connect</tt> is the NULL-terminated list of
+imported interfaces that will be created on the other side of the socket.
+Here the list contains only the <tt>Ping</tt> interface. Note that the
+factory for it is not registered - that will be done on the server side.
+</p><p>
+The <tt>_Connect</tt> function returns the file descriptor of the
+connected socket. If the socket can not be opened, -1 will be returned,
+and <tt>errno</tt> will be set appropriately. Errors in casycom
+should be reported by calling <tt>casycom_error</tt>, a printf-like
+call that sets the error string.  Error handling will begin as soon
+as the failing function returns, and works somewhat like exception
+propagation. The object originating the message routed to the failed
+function will be contacted and its <tt>.Error</tt> function pointer
+(in the <tt>Factory</tt>) will be called, if present. If the error
+handler returns <tt>true</tt>, the error will be considered handled
+and the execution will resume normally. Otherwise, the handling object
+is considered failed as well, and its creator object will be given the
+chance to handle the error next. If nobody handles the error, it will
+be printed and the process will terminate.
+</p><p>
+If the error occurs in the remote object, in another process, the error
+will be forwarded to the object's caller, in the client process. On the
+server side, the error will be considered handled and it will be up to
+the client to decide what to do about it.
+</p><pre>
+void App_ExternR_Connected (App* app, const ExternInfo* einfo)
+{
+    if (einfo-&gt;interfaces.size &lt; 1 || einfo-&gt;interfaces.d[0] != &amp;i_Ping)
+	return casycom_error ("connected to server that does not support the Ping interface");
+    app-&gt;pingp = casycom_create_proxy (&amp;i_Ping, oid_App);
+    PPing_Ping (&amp;app-&gt;pingp, 1);
+}
+</pre><p>
+<tt>Extern</tt> connections are opened asynchronously, so the <tt>App</tt>
+must wait until the <tt>ExternR_Connected</tt> notification before
+any imported objects can be created. The notification contains an
+<tt>ExternInfo</tt> with a list of interfaces actually available on this
+connection, the credentials of the process on the other side, and a flag
+specifying whether it is on a UNIX domain socket, which indicates that
+credentials and file descriptors can be sent over it.
+</p><p>
+Once the <tt>App</tt> verifies that the <tt>Ping</tt> interface is indeed
+present, proxies to objects of that type can now be created and used in
+the same manner as they were for local objects, with the <tt>PingR</tt>
+reply arriving the same way. Sending <tt>Ping</tt> messages before the
+connected notification arrives results in an error.
+</p><pre>
+void App_PingR_Ping (App* app, uint32_t u)
+    { casycom_quit (EXIT_SUCCESS); }
+
+void App_Error (void* vapp, oid_t eoid, const char* msg)
+{
+    casycom_log (LOG_ERR, "error from object %hu: %s", eoid, msg);
+    return false;
+}
+
+void App_ObjectDestroyed (void* vapp, oid_t oid)
+{
+    printf ("Called object %hu has been destroyed\n", oid);
+}
+
+const DApp d_App_App = {
+    .interface = &amp;i_App,
+    DMETHOD (App, App_Init)
+};
+const DPingR d_App_PingR = {
+    .interface = &amp;i_PingR,
+    DMETHOD (App, PingR_Ping)
+};
+const DExternR d_App_ExternR = {
+    .interface = &amp;i_ExternR,
+    DMETHOD (App, ExternR_Connected)
+};
+const Factory f_App = {
+    .Create	= App_Create,
+    .Destroy	= App_Destroy,
+    .Error	= App_Error,
+    .ObjectDestroyed = App_ObjectDestroyed,
+    .dtable	= { &amp;d_App_App, &amp;d_App_PingR, &amp;d_App_ExternR, NULL }
+};
+CASYCOM_MAIN (f_App)
+</pre><p>
+Finishing off the client side, there are two additional <tt>Factory</tt>
+methods demonstrated. The <tt>.Error</tt> function has been explained
+above. <tt>.ObjectDestroyed</tt> is called on an object when it has a
+proxy to an object that has been deleted. Usually there would be no other
+notification that this has happened. The proxy, of course, is still valid
+after this, but messages sent through it will result in a new object
+being created at the other end of the link. <tt>ObjectDestroyed</tt>
+can thus be useful in situations when the calling object keeps pointers
+into the called one.
+</p>
+
+<h2>Server Side</h2>
+<p>
+The server side needs to bind to a socket and listen for incoming
+connections. The recommended way is to use an <tt>ExternServer</tt>
+to do these things as well as spawn an <tt>Extern</tt> object to manage
+each accepted connection.
+</p><pre>
+const iid_t eil_Ping[] = { &amp;i_Ping, NULL };
+
+void App_App_Init (App* app, unsigned argc, char* const* argv)
+{
+    casycom_enable_externs();
+    casycom_register (&amp;f_ExternServer);
+    casycom_register (&amp;f_Ping);
+    app-&gt;externp = casycom_create_proxy (&amp;i_ExternServer, oid_App);
+    if (sd_listen_fds())
+	PExternServer_Open (&amp;app-&gt;externp, SD_LISTEN_FDS_START+0, eil_Ping);
+    else if (0 &gt; PExternServer_BindUserLocal (&amp;app-&gt;externp, "ipcom.socket", eil_Ping))
+	casycom_error ("ExternServer_BindUserLocal: %s", strerror(errno));
+}
+</pre><p>
+Here the <tt>ExternServer</tt> and <tt>Ping</tt> interfaces are
+registered.  It is recommended that systemd socket activation be
+supported. To do so, call <tt>sd_listen_fds</tt> to determine how many
+sockets have been passed from systemd. Although there may be more than
+one, this example will only bind to the first one. Supporting multiple
+fds will require an <tt>ExternServer</tt> object for each. The passed-in
+fds begin at <tt>SD_LISTEN_FDS_START</tt>.
+</p><p>
+If not launched through socket activation, "ipcom.socket" is created
+in the user's runtime directory in the same manner it was connected
+to in the client. Here the interface list contains <em>exported</em>
+interfaces; the server side does not normally import any.
+</p><p>
+<tt>ExternServer</tt> forwards the <tt>ExternR_Connected</tt>
+notifications to the <tt>App</tt>, requiring the latter to implement
+<tt>ExternR</tt>, but in this example the handler for that does nothing.
+</p><pre>
+void ServerApp_App_Init (App* app, unsigned argc, char* const* argv)
+{
+    casycom_enable_externs();
+    casycom_register (&amp;f_Ping);
+    app-&gt;externp = casycom_create_proxy (&amp;i_Extern, oid_App);
+    PExtern_Open (&amp;app-&gt;externp, STDIN_FILENO, EXTERN_SERVER, NULL, eil_Ping);
+}
+
+void ClientApp_App_Init (App* app, unsigned argc, char* const* argv)
+{
+    casycom_enable_externs();
+    app-&gt;externp = casycom_create_proxy (&amp;i_Extern, oid_App);
+    PExtern_LaunchPipe (&amp;app-&gt;externp, "ipcom", "-p", eil_Ping);
+}
+</pre><p>
+There is also a more direct way to make an object server: by making
+just one connection and using one <tt>Extern</tt> object at each
+end. This method does not require creating a public socket, and so
+is appropriate for use with private object servers. The server uses
+<tt>PExtern_Open</tt> to attach to the socket on stdin, and the client
+uses <tt>PExtern_LaunchPipe</tt> to launch the server process and create
+the the socket pipe. The client side imports <tt>Ping</tt>, the server
+side exports it.
+</p><p>
+</p>
+</div></div>
+</body>
+</html>

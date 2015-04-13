@@ -17,7 +17,7 @@
 // is to be delivered.
 
 // Method types for the dispatch table
-typedef void (*MFN_Ping_Ping)(void* o, uint32_t v, const Msg* msg);
+typedef void (*MFN_Ping_Ping)(void* o, uint32_t v);
 // The dispatch table for the dispatch method
 typedef struct _DPing {
     const Interface*	interface;	// Pointer to the interface this DTable implements
@@ -34,7 +34,7 @@ extern const Interface i_Ping;
 // Replies are reply interfaces, conventionally named NameR
 // Implementation is the same as above
 
-typedef void (*MFN_PingR_Ping)(void* o, uint32_t v, const Msg* msg);
+typedef void (*MFN_PingR_Ping)(void* o, uint32_t v);
 typedef struct _DPingR {
     const Interface*	interface;
     MFN_PingR_Ping	PingR_Ping;

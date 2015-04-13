@@ -1,0 +1,145 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Casycom - Non-framework Operation</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="index" type="text/xhtml+xml" href="index.html" />
+    <link rel="prev" type="text/xhtml+xml" href="tutipcom.html" />
+    <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
+    <meta name="Description" content="Non-framework operation" />
+    <meta name="Keywords" content="casycom, tutorial" />
+    <meta name="author" content="Mike Sharov" />
+    <meta name="date" content="2015-04-11" />
+</head>
+<body>
+<div id="pagectr"><div id="header">
+
+<h1>Frameworkless</h1>
+
+</div><div id="content">
+<p>
+Casycom is normally used as a complete framework, providing the message
+loop and requiring a root app object, but sometimes an application already
+uses an event-driven framework and its message loop. This tutorial
+demonstrates how to integrate casycom message loop into another.
+</p><pre>
+void OnChildSignal (int signo) { wait (NULL); }
+
+int main (void)
+{
+    casycom_init();
+    signal (SIGCHLD, OnChildSignal);
+    casycom_enable_externs();
+</pre><p>
+To manually initialize casycom in non-framework mode, call
+<tt>casycom_init</tt>. One notable difference with framework mode
+operation is that signal handlers are not installed. Normally casycom
+catches all the signals and converts them to messages to the <tt>App</tt>
+object. With only <tt>casycom_init</tt>, explicit signal handlers must be
+present, such as this <tt>SIGCHLD</tt> handler to clean up the launched
+object server.
+</p><pre>
+typedef struct _PingCaller {
+    Proxy	pingp;
+    Proxy	externp;
+} PingCaller;
+
+const iid_t eil_Ping[] = { &amp;i_Ping, NULL };
+
+void* PingCaller_Create (const Msg* msg)
+{
+    PingCaller* o = (PingCaller*) xalloc (sizeof(PingCaller));
+    o-&gt;externp = casycom_create_proxy (&amp;i_Extern, msg-&gt;h.dest);
+    PExtern_LaunchPipe ("ipcom", "-p", eil_Ping);
+}
+
+void PingCaller_ExternR_Connected (PingCaller* o)
+{
+    o-&gt;pingp = casycom_create_proxy (&amp;i_Ping, o-&gt;externp.src);
+    PPing_Ping (&amp;o-&gt;pingp, 1);
+}
+
+void PingCaller_PingR_Ping (PingCaller* o, uint32_t u)
+{
+    casycom_quit (EXIT_SUCCESS);
+}
+
+const DPingR d_PingCaller_PingR = {
+    .interface = &amp;i_PingR,
+    DMETHOD (PingCaller, PingR_Ping)
+};
+const DExternR d_PingCaller_ExternR = {
+    .interface = &amp;i_ExternR,
+    DMETHOD (PingCaller, ExternR_Connected)
+};
+const Factory f_PingCaller = {
+    .Create	= PingCaller_Create,
+    .dtable	= { &amp;d_PingCaller_PingR, &amp;d_PingCaller_ExternR, NULL }
+};
+
+int main (void)
+{
+    ...
+    casycom_register (&amp;f_PingCaller);
+    casycom_create_object (&amp;i_PingR);
+    ...
+}
+</pre><p>
+Because there is no App, no casycom objects exist initially. Objects
+are normally created when they are needed to receive a message. But
+an object can also be created manually by one of the interfaces it
+supports. Casycom always requires messages to be passed between objects,
+so an object must be created to send the <tt>Ping</tt> message. Here,
+the <tt>PingCaller</tt> object is defined, and then created using
+<tt>casycom_create_object</tt> by instantiating interface <tt>PingR</tt>.
+</p><p>
+This way there is no single app object, but multiple objects can be
+created to serve the same purpose. <tt>PingCaller</tt> uses its
+constructor to create an <tt>Extern</tt> connection and to launch
+ipcom as a private object server. Then it waits for the connection
+and sends a ping through it.
+</p><pre>
+int main (void)
+{
+    ...
+    while (!casycom_is_quitting()) {
+	bool haveMessages = casycom_loop_once();
+	size_t nFds = Timer_WatchListSize();
+	if (nFds) {
+	    struct pollfd fds [nFds];
+	    int timeout = 0;
+	    nFds = Timer_WatchListForPoll (fds, nFds, haveMessages ? NULL : &amp;timeout);
+	    poll (fds, nFds, timeout);
+	}
+    }
+    return casycom_exit_code();
+}
+</pre><p>
+Once a casycom object exists and there are messages in the queue,
+a message loop will have to run to process them. With another message
+loop normally in control, the casycom loop functionality will have
+to be interleaved into it as illustrated above.
+</p><p>
+Here a top-level message loop iterates and waits in <tt>poll</tt> when
+nothing needs doing. The loop will have its own exit conditions, but
+with casycom in use, it also needs to check <tt>casycom_is_quitting</tt>.
+This is required to correctly handle errors set by <tt>casycom_error</tt>.
+</p><p>
+Casycom messages will then have to be processed somewhere in the loop.
+<tt>casycom_loop_once</tt> will process the input queue, swap it with the
+output queue, and then stop, returning <tt>true</tt> when the queues are
+not empty. When messages are available, <tt>poll</tt> should not block,
+but only check the fds for the requested conditions.
+</p><p>
+The rest of the loop deals with file descriptors and timers being watched
+by casycom. The message loop must provide some way of waiting for them,
+such as by using <tt>poll</tt>. <tt>Timer_WatchListSize</tt> returns the
+number of fds and timers being watched. <tt>Timer_WatchListForPoll</tt>
+will fill the given <tt>pollfd</tt> array and will optionally set a
+timeout to support pure timers in the list.  Additional file descriptors
+can be appended at this point and control passed to <tt>poll</tt> until
+something happens.
+</p>
+</div></div>
+</body>
+</html>

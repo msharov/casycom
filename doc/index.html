@@ -1,0 +1,50 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>CAsyCOM - Asynchronous COM framework</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
+    <meta name="Description" content="Asynchronous COM framework" />
+    <meta name="Keywords" content="COM, event driven, asynchronous, framework" />
+    <meta name="author" content="Mike Sharov" />
+    <meta name="date" content="2015-04-11" />
+</head>
+<body>
+<div id="pagectr">
+<div id="header">
+
+<h1>CASYCOM</h1>
+
+</div><div id="content">
+<p>
+A Component Object Model defines a framework for creating objects and
+calling their methods independently of object location. This allows
+distributing objects used by one process among multiple executables or
+multiple computers. There are numerous COM implementations currently
+in use, such as the classic CORBA, Microsoft's DCOM upon which Windows
+is built, and, to some degree, DBUS, ubiqutous on Linux due to its use
+by systemd.
+</p><p>
+Casycom is one such COM framework, providing object creation and
+lifetime management, fully asynchronous messaging and event loop, and
+transparent access to out-of-process objects. It is very lightweight,
+a static library compiled to only 17k, and at only 3k lines of code,
+it is easy to fully review and understand.
+</p>
+<ul>
+<li>Download from <a href="https://github.com/msharov/casycom/releases/latest">https://github.com/msharov/casycom/releases/latest</a></li>
+<li>You'll need a C11 compiler, such as gcc 4.6 or clang 3.2.
+<li>Build with <tt>./configure &amp;&amp; make &amp;&amp; make install</tt></li>
+<li>Run verification tests in <tt>test/</tt> with <tt>make check</tt></li>
+<li>The verification tests are written as tutorials, with abundant comments.
+    <ul>
+    <li><a href="tutfwork.html">Object creation and messaging</a></li>
+    <li><a href="tutipcom.html">Interprocess communication</a></li>
+    <li><a href="tutnfwrk.html">Non-framework operation</a></li>
+    </ul></li>
+<li>Read the very simple <a href="protocol.html">protocol specification</a>.</li>
+</ul>
+</div>
+</div>
+</body>
+</html>
