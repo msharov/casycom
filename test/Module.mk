@@ -37,7 +37,7 @@ clean:	test/clean
 test/clean:
 	@if [ -d $O/test ]; then\
 	    rm -f ${test/TESTS} ${test/OBJS} ${test/DEPS};\
-	    rmdir $O/test;\
+	    rmdir ${BUILDDIR}/test;\
 	fi
 
 ${test/OBJS}: Makefile test/Module.mk ${CONFS} $O.d ${NAME}/config.h

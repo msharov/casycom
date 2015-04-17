@@ -2,7 +2,6 @@
 
 ################ Source files ##########################################
 
-LIBA	:= $Olib${NAME}.a
 SRCS	:= $(wildcard *.c)
 INCS	:= ${NAME}.h $(addprefix ${NAME}/,$(filter-out ${NAME}.h,$(sort $(wildcard *.h) config.h)))
 OBJS	:= $(addprefix $O,$(SRCS:.c=.o))
@@ -10,6 +9,13 @@ DEPS	:= ${OBJS:.o=.d}
 CONFS	:= Config.mk config.h
 ONAME   := $(notdir $(abspath $O))
 DOCS	:= $(notdir $(wildcard doc/*))
+LIBA_R	:= $Olib${NAME}.a
+LIBA_D	:= $Olib${NAME}_d.a
+ifdef DEBUG
+LIBA	:= ${LIBA_D}
+else
+LIBA	:= ${LIBA_R}
+endif
 
 ################ Compilation ###########################################
 
@@ -85,8 +91,8 @@ include test/Module.mk
 
 clean:
 	@if [ -h ${ONAME} ]; then\
-	    rm -f $O.d ${LIBA} ${OBJS} ${DEPS} ${ONAME};\
-	    rmdir ${BUILDDIR};\
+	    rm -f $O.d ${LIBA_R} ${LIBA_D} ${OBJS} ${DEPS} ${ONAME};\
+	    rmdir -p --ignore-fail-on-non-empty ${BUILDDIR};\
 	fi
 
 distclean:	clean
