@@ -17,6 +17,7 @@ INSTALL		:= @INSTALL@
 INSTALLEXE	:= ${INSTALL} -D -p -m 700 -s
 INSTALLDATA	:= ${INSTALL} -D -p -m 644
 INSTALLLIB	:= ${INSTALLDATA}
+RMPATH		:= rmdir -p --ignore-fail-on-non-empty
 
 ################ Destination #########################################
 

@@ -53,7 +53,7 @@ uninstall-incs:
 	@if [ -d ${INCDIR}/${NAME} ]; then\
 	    echo "Removing headers ...";\
 	    rm -f ${INCSI};\
-	    rmdir -p --ignore-fail-on-non-empty ${INCDIR}/${NAME};\
+	    ${RMPATH} ${INCDIR}/${NAME};\
 	fi
 endif
 ifdef LIBDIR
@@ -81,7 +81,7 @@ uninstall-docs:
 	@if [ -d ${PKGDOCDIR} ]; then\
 	    echo "Removing documentation ...";\
 	    rm -f ${DOCSI};\
-	    rmdir -p --ignore-fail-on-non-empty ${PKGDOCDIR};\
+	    ${RMPATH} ${PKGDOCDIR};\
 	fi
 endif
 
@@ -92,7 +92,7 @@ include test/Module.mk
 clean:
 	@if [ -h ${ONAME} ]; then\
 	    rm -f $O.d ${LIBA_R} ${LIBA_D} ${OBJS} ${DEPS} ${ONAME};\
-	    rmdir -p --ignore-fail-on-non-empty ${BUILDDIR};\
+	    ${RMPATH} ${BUILDDIR};\
 	fi
 
 distclean:	clean

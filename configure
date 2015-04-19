@@ -86,6 +86,7 @@ if [ "$SYSNAME" = "bsd" ]; then
     echo 's/-Wredundant-decls/-Wno-redundant-decls/g
 	s/-Winline/-Wno-inline/g' >>config.sed
 fi
+[ "$SYSNAME" = "linux" ] || echo 's/-p --ignore-fail-on-non-empty//g' >>config.sed
 if [ "$SYSNAME" = "linux" -o "$SYSNAME" = "bsd" ]; then
     echo 's/@SHBLDFL@/-shared -Wl,-soname=$1/g' >>config.sed
 fi
