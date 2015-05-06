@@ -117,6 +117,7 @@ void Timer_Timer_Watch (Timer* o, enum ETimerWatchCmd cmd, int fd, casytimer_t t
     o->nextfire = timeoutms;
 }
 
+#ifndef NDEBUG
 static const char* timestring (casytimer_t t)
 {
     t /= 1000;
@@ -126,6 +127,7 @@ static const char* timestring (casytimer_t t)
     tbuf[strlen(tbuf)-1] = 0;	// remove newline
     return tbuf;
 }
+#endif
 
 /// Waits for timer or fd events.
 /// toWait specifies the minimum timeout in milliseconds.

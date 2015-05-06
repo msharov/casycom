@@ -565,7 +565,7 @@ int casycom_main (void)
 
 static void casycom_idle (void)
 {
-    DEBUG_PRINTF ("[I]=============================================================\n");
+    DEBUG_PRINTF ("[I]=======================================================================\n");
     casycom_send_signal_message();	// Check if a signal has fired
     casycom_destroy_unused_objects();	// Destroy objects marked unused
     // Process timers and fd waits
