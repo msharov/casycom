@@ -93,8 +93,13 @@ static inline void casymsg_end (Msg* msg)
 static inline void casymsg_write_fd (Msg* msg, WStm* os, int fd) {
     size_t fdoffset = os->_p - (char*) msg->body;
     assert (fdoffset != NO_FD_IN_MESSAGE && "file descriptors must be passed in the first 252 bytes of the message");
+    assert (msg->fdoffset == NO_FD_IN_MESSAGE && "only one file descriptor can be passed per message");
     msg->fdoffset = fdoffset;
     casystm_write_int32 (os, fd);
+}
+static inline int casymsg_read_fd (const Msg* msg, RStm* is) {
+    assert ((size_t)(is->_p - (char*) msg->body) == msg->fdoffset && "there is no file descriptor at this offset");
+    return casystm_read_int32 (is);
 }
 
 #define casymsg_free(msg)	\
