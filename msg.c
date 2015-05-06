@@ -7,8 +7,6 @@
 
 Msg* casymsg_begin (const Proxy* pp, uint32_t imethod, uint32_t sz)
 {
-    assert (pp && pp->interface);
-    assert ((imethod == method_CreateObject || imethod < casyiface_count_methods (pp->interface)) && "invalid method index for this interface");
     Msg* msg = (Msg*) xalloc (sizeof(Msg));
     msg->h = *pp;
     msg->imethod = imethod;

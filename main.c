@@ -427,7 +427,10 @@ void casycom_queue_message (Msg* msg)
 {
     #ifndef NDEBUG	// Message validity checks
 	assert (msg && msg->h.interface && (!msg->size || msg->body) && "invalid message");
-	assert (casycom_find_factory (msg->h.interface) && "message addressed to unregistered interface");
+	const Factory* destFactory = casycom_find_factory (msg->h.interface);
+	if (!destFactory)
+	    DEBUG_PRINTF ("Error: you must call casycom_register (&f_%s) to use this interface\n", casymsg_interface_name(msg));
+	assert (destFactory && "message addressed to unregistered interface");
 	MsgLink* destl = casycom_find_destination (msg->h.dest);
 	assert (destl && "message addressed to an unknown destination");
 	const DTable* dtable = casycom_find_dtable (destl->factory, msg->h.interface);
@@ -435,7 +438,12 @@ void casycom_queue_message (Msg* msg)
 	assert (casycom_link_for_proxy(&msg->h) < _casycom_OMap.size && "message sent through a deleted proxy; do not delete proxies in the destructor or in ObjectDeleted!");
 	if (msg->imethod != method_CreateObject) {
 	    assert (msg->imethod < casyiface_count_methods (msg->h.interface) && "invalid message destination method");
-	    assert (msg->size == casymsg_validate_signature (msg) && "message data does not match method signature");
+	    size_t vmsgsize = casymsg_validate_signature (msg);
+	    if (DEBUG_MSG_TRACE && msg->size != vmsgsize) {
+		DEBUG_PRINTF ("Error: message body size %zu does not match signature '%s':\n", vmsgsize, casymsg_signature(msg));
+		casycom_debug_message_dump (msg);
+	    }
+	    assert (msg->size == vmsgsize && "message data does not match method signature");
 	    assert ((!strchr(casymsg_signature(msg),'h') || msg->fdoffset != NO_FD_IN_MESSAGE) && "message signature requires a file descriptor in the message body, but none was written");
 	    assert ((msg->fdoffset == NO_FD_IN_MESSAGE || (msg->fdoffset+4u <= msg->size && Align(msg->fdoffset,4) == msg->fdoffset)) && "you must use casymsg_write_fd to write a file descriptor to a message");
 	} else
