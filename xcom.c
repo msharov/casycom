@@ -599,7 +599,8 @@ static void Extern_Reading (Extern* o)
 		return Extern_Extern_Close (o);
 	    }
 	    // If it has, queue it and reset inMsg pointer
-	    Extern_QueueIncomingMessage (o, o->inMsg);
+	    if (o->inMsg)
+		Extern_QueueIncomingMessage (o, o->inMsg);
 	    o->inMsg = NULL;
 	    o->inHRead = br;
 	    o->inBRead = 0;
@@ -686,9 +687,17 @@ static bool Extern_ValidateMessage (Extern* o, Msg* msg)
     // Look up existing object for this extid
     COMConn* conn = Extern_COMConnByExtid (o, msg->extid);
     if (!conn) {		// If not present, then this is a request to create one
+	// Do not create object for COM messages (such as COM Delete)
+	if (msg->h.interface == &i_COM) {
+	    DEBUG_PRINTF ("[X] Ignoring COM message to extid %hu\n", msg->extid);
+	    casymsg_free (msg);
+	    o->inMsg = NULL;	// to skip QueueIncomingMessage in caller
+	    return true;
+	}
+	// Prohibit creation of objects not on the export list
 	if (!Extern_IsInterfaceExported (o, msg->h.interface)) {
 	    DEBUG_PRINTF ("[X] Message addressed to interface not on export list\n");
-	    return false;	// Prohibit creation of objects not on the export list
+	    return false;
 	}
 	// Verify that the other end set the extid of new object in appropriate range
 	if (msg->extid >= extid_ClientLast || (o->info.isClient && (msg->extid < extid_ServerBase || msg->extid >= extid_ServerLast))) {
@@ -780,6 +789,11 @@ static void Extern_QueueOutgoingMessage (Extern* o, Msg* msg)
 	    DEBUG_PRINTF ("[X] New outgoing connection %hu -> %hu.%s, extid %hu\n", msg->h.src, msg->h.dest, casymsg_interface_name(msg), conn->extid);
 	}
 	msg->extid = conn->extid;
+	// Once the object is deleted, the COMConn record must be recreated because it is linked to a specific object interface
+	if (msg->h.interface == &i_COM && msg->imethod == method_COM_Delete) {
+	    DEBUG_PRINTF ("[X] Destroying connection with extid %hu\n", conn->extid);
+	    vector_erase (&o->conns, conn - o->conns.d);
+	}
     }
     vector_push_back (&o->outgoing, &msg);
     Extern_TimerR_Timer (o);
