@@ -8,6 +8,7 @@ test/TOBJS	:= $(addprefix $O,$(test/TSRCS:.c=.o))
 test/AOBJS	:= $(addprefix $O,$(test/ASRCS:.c=.o))
 test/OBJS	:= ${test/TOBJS} ${test/AOBJS}
 test/DEPS	:= ${test/TOBJS:.o=.d} ${test/AOBJS:.o=.d}
+test/OUTS	:= ${test/TOBJS:.o=.out}
 
 ################ Compilation ###########################################
 
@@ -36,7 +37,7 @@ ${test/TESTS}: $Otest/%: $Otest/%.o ${test/AOBJS} ${LIBA}
 clean:	test/clean
 test/clean:
 	@if [ -d $O/test ]; then\
-	    rm -f ${test/TESTS} ${test/OBJS} ${test/DEPS};\
+	    rm -f ${test/TESTS} ${test/OBJS} ${test/DEPS} ${test/OUTS};\
 	    rmdir ${BUILDDIR}/test;\
 	fi
 
