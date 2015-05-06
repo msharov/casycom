@@ -112,7 +112,19 @@ void Timer_Timer_Watch (Timer* o, enum ETimerWatchCmd cmd, int fd, casytimer_t t
 {
     o->cmd = cmd;
     o->fd = fd;
-    o->nextfire = timeoutms + Timer_NowMS();
+    if (timeoutms <= TIMER_MAX)
+	timeoutms += Timer_NowMS();
+    o->nextfire = timeoutms;
+}
+
+static const char* timestring (casytimer_t t)
+{
+    t /= 1000;
+    static char tbuf [32];
+    memset (tbuf, 0, sizeof(tbuf));
+    ctime_r ((const time_t*) &t, tbuf);
+    tbuf[strlen(tbuf)-1] = 0;	// remove newline
+    return tbuf;
 }
 
 /// Waits for timer or fd events.
@@ -143,9 +155,8 @@ bool Timer_RunTimer (int toWait)
     if (DEBUG_MSG_TRACE) {
 	DEBUG_PRINTF ("[I] Waiting for %zu file descriptors from %zu timers", nFds, _timer_WatchList.size);
 	if (toWait > 0)
-	    DEBUG_PRINTF (" with %d ms timeout\n", toWait);
-	else
-	    DEBUG_PRINTF ("\n");
+	    DEBUG_PRINTF (" with %d ms timeout", toWait);
+	DEBUG_PRINTF (". %s", timestring(Timer_NowMS()));
     }
     // And poll
     poll (fds, nFds, toWait);
@@ -155,10 +166,24 @@ bool Timer_RunTimer (int toWait)
     for (size_t i = 0, fdi = 0; i < _timer_WatchList.size; ++i) {
 	const Timer* we = _timer_WatchList.d[i];
 	bool bFired = we->nextfire <= now;	// Check timer expiration
+	if (DEBUG_MSG_TRACE && bFired) {
+	    DEBUG_PRINTF("[T]\tTimer %s", timestring(we->nextfire));
+	    DEBUG_PRINTF(" fired at %s\n", timestring(now));
+	}
 	if (we->fd >= 0 && we->cmd != WATCH_STOP) {
 	    // Check if fd fired, or has errors. Errors will be detected when the client tries to use the fd.
 	    if (fds[fdi].revents & (POLLERR| we->cmd))
 		bFired = true;
+	    if (DEBUG_MSG_TRACE) {
+		if (fds[fdi].revents & POLLIN)
+		    DEBUG_PRINTF("[T]\tFile descriptor %d can be read\n", fds[fdi].fd);
+		if (fds[fdi].revents & POLLOUT)
+		    DEBUG_PRINTF("[T]\tFile descriptor %d can be written\n", fds[fdi].fd);
+		if (fds[fdi].revents & POLLMSG)
+		    DEBUG_PRINTF("[T]\tFile descriptor %d has extra data\n", fds[fdi].fd);
+		if (fds[fdi].revents & POLLERR)
+		    DEBUG_PRINTF("[T]\tFile descriptor %d has errors\n", fds[fdi].fd);
+	    }
 	    ++fdi;
 	}
 	if (bFired) {	// Once the timer or the fd fires, it is removed
