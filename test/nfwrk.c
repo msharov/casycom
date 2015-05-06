@@ -208,7 +208,7 @@ int main (void)
 	    // can be provided to support pure timers.
 	    //
 	    int timeout = 0;
-	    nFds = Timer_WatchListForPoll (fds, nFds, haveMessages ? NULL : &timeout);
+	    nFds = Timer_WatchListForPoll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &timeout);
 	    //
 	    // Now poll can be called to wait on the results
 	    //

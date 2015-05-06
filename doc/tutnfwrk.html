@@ -108,7 +108,7 @@ int main (void)
 	if (nFds) {
 	    struct pollfd fds [nFds];
 	    int timeout = 0;
-	    nFds = Timer_WatchListForPoll (fds, nFds, haveMessages ? NULL : &amp;timeout);
+	    nFds = Timer_WatchListForPoll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &amp;timeout);
 	    poll (fds, nFds, timeout);
 	}
     }

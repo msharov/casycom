@@ -156,7 +156,7 @@ bool Timer_RunTimer (int toWait)
 	DEBUG_PRINTF ("[I] Waiting for %zu file descriptors from %zu timers", nFds, _timer_WatchList.size);
 	if (toWait > 0)
 	    DEBUG_PRINTF (" with %d ms timeout", toWait);
-	DEBUG_PRINTF (". %s", timestring(Timer_NowMS()));
+	DEBUG_PRINTF (". %s\n", timestring(Timer_NowMS()));
     }
     // And poll
     poll (fds, nFds, toWait);

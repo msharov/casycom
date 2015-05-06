@@ -570,7 +570,7 @@ static void casycom_idle (void)
     casycom_destroy_unused_objects();	// Destroy objects marked unused
     // Process timers and fd waits
     int timerWait = -1;
-    if (_casycom_InputQueue.size + _casycom_OutputQueue.size)
+    if (_casycom_InputQueue.size + _casycom_OutputQueue.size + _casycom_Quitting)
 	timerWait = 0;	// Do not wait if there are packets in the queue
     bool haveTimers = Timer_RunTimer (timerWait);
     // Quit when there are no more packets or timers
