@@ -97,7 +97,7 @@ static inline void casymsg_write_fd (Msg* msg, WStm* os, int fd) {
     msg->fdoffset = fdoffset;
     casystm_write_int32 (os, fd);
 }
-static inline int casymsg_read_fd (const Msg* msg, RStm* is) {
+static inline int casymsg_read_fd (const Msg* msg UNUSED, RStm* is) {
     assert ((size_t)(is->_p - (char*) msg->body) == msg->fdoffset && "there is no file descriptor at this offset");
     return casystm_read_int32 (is);
 }
