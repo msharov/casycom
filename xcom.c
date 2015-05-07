@@ -841,6 +841,7 @@ static bool Extern_Writing (Extern* o)
 	char fdbuf [CMSG_SPACE(sizeof(int))];
 	int fdpassed = -1;
 	if (hbuf.h.fdoffset != NO_FD_IN_MESSAGE) {
+	    memset (fdbuf, 0, sizeof(fdbuf));
 	    mh.msg_control = fdbuf;
 	    mh.msg_controllen = sizeof(fdbuf);
 	    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mh);

@@ -25,10 +25,8 @@ static _Atomic(bool) _casycom_OutputQueueLock = false;
 static char* _casycom_Error = NULL;
 // App proxy
 static Proxy _casycom_PApp = PROXY_INIT;
-#ifndef NDEBUG
 // Enables debug trace messages
 bool casycom_DebugMsgTrace = false;
-#endif
 
 // Message queues
 DECLARE_VECTOR_TYPE (MsgVector, Msg*);
