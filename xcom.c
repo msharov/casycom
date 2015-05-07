@@ -551,14 +551,15 @@ static void Extern_Reading (Extern* o)
 	// Receive some data
 	int br = recvmsg (o->fd, &mh, 0);
 	if (br <= 0) {
-	    if (br < 0) {	// br == 0 when remote end closes. No error then, just need to close this end too.
+	    if (!br || errno == ECONNRESET)	// br == 0 when remote end closes. No error then, just need to close this end too.
+		DEBUG_PRINTF ("[X] %hu.Extern: rsocket %d closed by the other end\n", o->info.oid, o->fd);
+	    else {
 		if (errno == EINTR)
 		    continue;
 		if (errno == EAGAIN)
 		    return;
 		casycom_error ("recvmsg: %s", strerror(errno));
-	    } else
-		DEBUG_PRINTF ("[X] %hu.Extern: rsocket %d closed by the other end\n", o->info.oid, o->fd);
+	    }
 	    return Extern_Extern_Close (o);
 	}
 	DEBUG_PRINTF ("[X] Read %d bytes from socket %d\n", br, o->fd);
@@ -854,14 +855,15 @@ static bool Extern_Writing (Extern* o)
 	// And try writing it all
 	int bw = sendmsg (o->fd, &mh, MSG_NOSIGNAL);
 	if (bw <= 0) {
-	    if (bw < 0) {	// bw == 0 when remote end closes. No error then, just need to close this end too.
+	    if (!bw || errno == ECONNRESET)	// bw == 0 when remote end closes. No error then, just need to close this end too.
+		DEBUG_PRINTF ("[X] %hu.Extern: wsocket %d closed by the other end\n", o->info.oid, o->fd);
+	    else {
 		if (errno == EINTR)
 		    continue;
 		if (errno == EAGAIN)
 		    return true;
 		casycom_error ("sendmsg: %s", strerror(errno));
-	    } else
-		DEBUG_PRINTF ("[X] %hu.Extern: wsocket %d closed by the other end\n", o->info.oid, o->fd);
+	    }
 	    Extern_Extern_Close (o);
 	    return false;
 	}
