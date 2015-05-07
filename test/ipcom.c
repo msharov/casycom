@@ -155,7 +155,7 @@ static void App_Server (App* app)
     // to listen on more than one socket.
     //
     if (sd_listen_fds())
-	PExternServer_Open (&app->externp, SD_LISTEN_FDS_START+0, eil_Ping);
+	PExternServer_Open (&app->externp, SD_LISTEN_FDS_START+0, eil_Ping, true);
     else {	// If no sockets were passed from systemd, create one manually
 	// Use BindUserLocal to create the socket in XDG_RUNTIME_DIR,
 	// the standard location for sockets of user services.

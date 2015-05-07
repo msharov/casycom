@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-typedef void (*MFN_ExternServer_Open)(void* vo, int fd, const iid_t* exportedInterfaces);
+typedef void (*MFN_ExternServer_Open)(void* vo, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty);
 typedef void (*MFN_ExternServer_Close)(void* vo);
 typedef struct _DExternServer {
     iid_t interface;
@@ -17,7 +17,7 @@ typedef struct _DExternServer {
     MFN_ExternServer_Close ExternServer_Close;
 } DExternServer;
 
-void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces) noexcept NONNULL(1);
+void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty) noexcept NONNULL(1);
 void PExternServer_Close (const Proxy* pp) noexcept NONNULL();
 int  PExternServer_Bind (const Proxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* exportedInterfaces) noexcept NONNULL();
 int  PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exportedInterfaces) noexcept NONNULL();

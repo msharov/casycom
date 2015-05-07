@@ -182,18 +182,20 @@ void App_App_Init (App* app, unsigned argc, char* const* argv)
     casycom_register (&amp;f_Ping);
     app-&gt;externp = casycom_create_proxy (&amp;i_ExternServer, oid_App);
     if (sd_listen_fds())
-	PExternServer_Open (&amp;app-&gt;externp, SD_LISTEN_FDS_START+0, eil_Ping);
+	PExternServer_Open (&amp;app-&gt;externp, SD_LISTEN_FDS_START+0, eil_Ping, true);
     else if (0 &gt; PExternServer_BindUserLocal (&amp;app-&gt;externp, "ipcom.socket", eil_Ping))
 	casycom_error ("ExternServer_BindUserLocal: %s", strerror(errno));
 }
 </pre><p>
 Here the <tt>ExternServer</tt> and <tt>Ping</tt> interfaces are
-registered.  It is recommended that systemd socket activation be
+registered. It is recommended that systemd socket activation be
 supported. To do so, call <tt>sd_listen_fds</tt> to determine how many
 sockets have been passed from systemd. Although there may be more than
-one, this example will only bind to the first one. Supporting multiple
-fds will require an <tt>ExternServer</tt> object for each. The passed-in
-fds begin at <tt>SD_LISTEN_FDS_START</tt>.
+one, this example will only bind to the first one. Supporting multiple fds
+will require an <tt>ExternServer</tt> object for each. The passed-in fds
+begin at <tt>SD_LISTEN_FDS_START</tt>. The last parameter <tt>true</tt>
+indicates that the service should shutdown when there are no connections,
+allowing systemd to resume watching the socket.
 </p><p>
 If not launched through socket activation, "ipcom.socket" is created
 in the user's runtime directory in the same manner it was connected

@@ -6,8 +6,10 @@
 #include "xsrv.h"
 #include "timer.h"
 #include <netinet/ip.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <paths.h>
+#include <fcntl.h>
 
 //{{{ PExternServer ----------------------------------------------------
 
@@ -16,13 +18,14 @@ enum {
     method_ExternServer_Close
 };
 
-void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces)
+void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty)
 {
     assert (pp->interface == &i_ExternServer && "this proxy is for a different interface");
-    Msg* msg = casymsg_begin (pp, method_ExternServer_Open, 8+4);
+    Msg* msg = casymsg_begin (pp, method_ExternServer_Open, 8+4+1);
     WStm os = casymsg_write (msg);
     casystm_write_uint64 (&os, (uintptr_t) exportedInterfaces);
     casystm_write_int32 (&os, fd);
+    casystm_write_bool (&os, closeWhenEmpty);
     casymsg_end (msg);
 }
 
@@ -39,7 +42,8 @@ static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const 
 	RStm is = casymsg_read (msg);
 	const iid_t* exportedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
 	int fd = casystm_read_int32 (&is);
-	dtable->ExternServer_Open (o, fd, exportedInterfaces);
+	bool closeWhenEmpty = casystm_read_bool (&is);
+	dtable->ExternServer_Open (o, fd, exportedInterfaces, closeWhenEmpty);
     } else if (msg->imethod == method_ExternServer_Close)
 	dtable->ExternServer_Close (o);
     else
@@ -49,7 +53,7 @@ static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const 
 const Interface i_ExternServer = {
     .name = "ExternServer",
     .dispatch = PExternServer_Dispatch,
-    .method = { "Open\0xi", "Close\0", NULL }
+    .method = { "Open\0xib", "Close\0", NULL }
 };
 
 //}}}-------------------------------------------------------------------
@@ -98,7 +102,7 @@ int PExternServer_Bind (const Proxy* pp, const struct sockaddr* addr, socklen_t 
     }
     if (addr->sa_family == PF_LOCAL)
 	ExternServer_RegisterLocalName (fd, ((const struct sockaddr_un*)addr)->sun_path);
-    PExternServer_Open (pp, fd, exportedInterfaces);
+    PExternServer_Open (pp, fd, exportedInterfaces, false);
     return fd;
 }
 
@@ -112,7 +116,10 @@ int PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exp
 	return -1;
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    if (0 > chmod (addr.sun_path, 0666))
+	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
+    return fd;
 }
 
 /// Create local socket of the given name in the system standard location for such
@@ -125,7 +132,10 @@ int PExternServer_BindSystemLocal (const Proxy* pp, const char* sockname, const 
 	return -1;
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    if (0 > chmod (addr.sun_path, 0666))
+	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
+    return fd;
 }
 
 /// Create local socket of the given name in the user standard location for such
@@ -141,7 +151,10 @@ int PExternServer_BindUserLocal (const Proxy* pp, const char* sockname, const ii
 	return -1;
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    if (0 > chmod (addr.sun_path, 0666))
+	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
+    return fd;
 }
 
 //}}}-------------------------------------------------------------------
@@ -153,6 +166,7 @@ typedef struct _ExternServer {
     Proxy		reply;
     int			fd;
     Proxy		timer;
+    bool		closeWhenEmpty;
     const iid_t*	exportedInterfaces;
     ProxyVector		pconn;
 } ExternServer;
@@ -196,6 +210,8 @@ static void ExternServer_ObjectDestroyed (void* vo, oid_t oid)
 	    vector_erase (&o->pconn, i--);
 	}
     }
+    if (!o->pconn.size && o->closeWhenEmpty)
+	casycom_mark_unused (o);
 }
 
 static void ExternServer_TimerR_Timer (ExternServer* o, int fd)
@@ -217,11 +233,13 @@ static void ExternServer_TimerR_Timer (ExternServer* o, int fd)
     }
 }
 
-static void ExternServer_ExternServer_Open (ExternServer* o, int fd, const iid_t* exportedInterfaces)
+static void ExternServer_ExternServer_Open (ExternServer* o, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty)
 {
     assert (o->fd == -1 && "each ExternServer instance can only listen to one socket");
     o->fd = fd;
     o->exportedInterfaces = exportedInterfaces;
+    o->closeWhenEmpty = closeWhenEmpty;
+    fcntl (o->fd, F_SETFL, O_NONBLOCK| fcntl (o->fd, F_GETFL));
     ExternServer_TimerR_Timer (o, fd);
 }
 
