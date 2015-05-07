@@ -213,7 +213,8 @@ int PExtern_LaunchPipe (const Proxy* pp, const char* exe, const char* arg, const
     if (fr == 0) {	// Server side
 	close (socks[0]);
 	dup2 (socks[1], STDIN_FILENO);
-	execlp (exe, arg, NULL);
+	if (0 > execlp (exe, exe, arg, NULL))
+	    return -1;
     } else {
 	close (socks[1]);
 	PExtern_Open (pp, socks[0], EXTERN_CLIENT, importedInterfaces, NULL);
