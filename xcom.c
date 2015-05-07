@@ -241,7 +241,8 @@ static void PExternR_Dispatch (const DExternR* dtable, void* o, const Msg* msg)
     if (msg->imethod == method_ExternR_Connected) {
 	RStm is = casymsg_read (msg);
 	const ExternInfo* einfo = (const ExternInfo*) casystm_read_uint64 (&is);
-	dtable->ExternR_Connected (o, einfo);
+	if (dtable->ExternR_Connected)
+	    dtable->ExternR_Connected (o, einfo);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }
