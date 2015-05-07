@@ -623,6 +623,7 @@ static void Extern_Reading (Extern* o)
 	    }
 	    o->inMsg = casymsg_begin (&o->reply, method_CreateObject, o->inHBuf.h.sz);
 	    o->inMsg->extid = o->inHBuf.h.extid;
+	    o->inMsg->fdoffset = o->inHBuf.h.fdoffset;
 	}
     }
 }
@@ -678,6 +679,7 @@ static bool Extern_ValidateMessage (Extern* o, Msg* msg)
     }
     msg->size = vmsize;	// The written size was its aligned value. The real value comes from the validator.
     if (msg->fdoffset != NO_FD_IN_MESSAGE) {
+	DEBUG_PRINTF ("[X] Setting message file descriptor to %d at %hhu\n", o->inLastFd, msg->fdoffset);
 	*int_alias_cast((char*) msg->body + msg->fdoffset) = o->inLastFd;
 	o->inLastFd = -1;
     }

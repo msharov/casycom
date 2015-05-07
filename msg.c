@@ -36,6 +36,8 @@ void casymsg_forward (const Proxy* pp, Msg* msg)
     fwm->h.interface = msg->h.interface;
     fwm->body = msg->body;
     fwm->size = msg->size;
+    fwm->extid = msg->extid;
+    fwm->fdoffset = msg->fdoffset;
     msg->size = 0;
     msg->body = NULL;
     casymsg_end (fwm);
