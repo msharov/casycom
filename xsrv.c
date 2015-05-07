@@ -117,7 +117,7 @@ int PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exp
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
     int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
-    if (0 > chmod (addr.sun_path, 0666))
+    if (0 > chmod (addr.sun_path, DEFFILEMODE))
 	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
     return fd;
 }
@@ -133,7 +133,7 @@ int PExternServer_BindSystemLocal (const Proxy* pp, const char* sockname, const 
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
     int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
-    if (0 > chmod (addr.sun_path, 0666))
+    if (0 > chmod (addr.sun_path, DEFFILEMODE))
 	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
     return fd;
 }
@@ -152,7 +152,7 @@ int PExternServer_BindUserLocal (const Proxy* pp, const char* sockname, const ii
     }
     DEBUG_PRINTF ("[X] Creating server socket %s\n", addr.sun_path);
     int fd = PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
-    if (0 > chmod (addr.sun_path, 0666))
+    if (0 > chmod (addr.sun_path, S_IRUSR| S_IWUSR))
 	DEBUG_PRINTF ("[E] Failed to change socket permissions: %s\n", strerror(errno));
     return fd;
 }
