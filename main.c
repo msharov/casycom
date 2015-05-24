@@ -633,7 +633,5 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
 	return true;
     }
     // If not, fail this object and forward to creator
-    if (ml->h.src == eoid)
-	return false;	// unless it already failed
     return casycom_forward_error (ml->h.src, oid);
 }
