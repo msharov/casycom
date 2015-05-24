@@ -157,7 +157,7 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
 	    for (size_t btr; 0 < (btr = o->rbuf->allocated - o->rbuf->size);) {
 		ssize_t r = read (o->fd, &o->rbuf->d[o->rbuf->size], btr);
 		if (r <= 0) {
-		    if (r == 0) {
+		    if (!r || errno == ECONNRESET) {
 			o->eof = true;
 			casycom_mark_unused (o);
 		    } else if (errno == EAGAIN)
@@ -182,7 +182,7 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
 	    while (o->wbuf->size) {
 		ssize_t r = write (o->fd, o->wbuf->d, o->wbuf->size);
 		if (r <= 0) {
-		    if (r == 0) {
+		    if (!r || errno == ECONNRESET) {
 			o->eof = true;
 			casycom_mark_unused (o);
 		    } else if (errno == EAGAIN)
