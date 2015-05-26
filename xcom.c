@@ -605,7 +605,7 @@ static void Extern_Reading (Extern* o)
 	    if (o->inMsg)
 		Extern_QueueIncomingMessage (o, o->inMsg);
 	    o->inMsg = NULL;
-	    o->inHRead = br;
+	    o->inHRead = 0;
 	    o->inBRead = 0;
 	    // Clear variable header data
 	    memset (&o->inHBuf.d[sizeof(o->inHBuf.h)], 0, sizeof(o->inHBuf)-sizeof(o->inHBuf.h));
