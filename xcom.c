@@ -1014,7 +1014,7 @@ static bool COMRelay_Error (void* vo, oid_t eoid, const char* msg)
     // An unhandled error in the local object is forwarded to the remote
     // object. At this point it will be considered handled. The remote
     // will decide whether to delete itself, which will propagate here.
-    if (o && o->pExtern && eoid == o->localp.dest) {
+    if (o->pExtern && eoid == o->localp.dest) {
 	const Proxy failp = {	// The message comes from the real object
 	    .interface = &i_COM,
 	    .src = o->localp.dest,
