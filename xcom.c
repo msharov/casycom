@@ -1014,12 +1014,13 @@ static bool COMRelay_Error (void* vo, oid_t eoid, const char* msg)
     // An unhandled error in the local object is forwarded to the remote
     // object. At this point it will be considered handled. The remote
     // will decide whether to delete itself, which will propagate here.
-    if (o->pExtern && eoid == o->localp.dest) {
+    if (o && o->pExtern && eoid == o->localp.dest) {
 	const Proxy failp = {	// The message comes from the real object
 	    .interface = &i_COM,
 	    .src = o->localp.dest,
 	    .dest = o->localp.src
 	};
+	DEBUG_PRINTF ("[X] COMRelay forwarding error to extern creator\n");
 	Extern_QueueOutgoingMessage (o->pExtern, PCOM_ErrorMessage (&failp, msg));
 	return true;	// handled on the remote end.
     }
@@ -1044,7 +1045,7 @@ static void COMRelay_COM_Error (COMRelay* o, const char* error)
     // object is destroyed and COM_Delete will shortly follow. Here, create
     // a local error and send it to the local object.
     casycom_error ("%s", error);
-    casycom_forward_error (o->localp.src, o->localp.dest);
+    casycom_forward_error (o->localp.dest, o->localp.src);
 }
 
 static void COMRelay_COM_Delete (COMRelay* o)

@@ -624,7 +624,7 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
     assert (_casycom_Error && "you must first set the error with casycom_error");
     // See if the object can handle the error
     MsgLink* ml = casycom_find_destination (oid);
-    if (!ml || !ml->o)
+    if (!ml)	// no further links in the chain, set to unhandled
 	return false;
     DEBUG_PRINTF ("[E] Handling error in object %hu\n", ml->h.dest);
     if (ml->factory->Error && ml->factory->Error (ml->o, eoid, _casycom_Error)) {
