@@ -174,7 +174,7 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
 		PIOR_Read (&o->reply, o->rbuf);
 	}
 	if (o->eof)
-	    PIOR_Read (&o->reply, NULL);
+	    PIOR_Read (&o->reply, o->rbuf = NULL);
     }
     if (o->wbuf) {
 	if (!o->eof) {
@@ -197,9 +197,11 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
 	    }
 	    if (wbufsize != o->wbuf->size && (!o->wbuf->size || o->eof))
 		PIOR_Written (&o->reply, o->wbuf);
+	    if (!o->wbuf->size)	// stop writing when done
+		o->wbuf = NULL;
 	}
 	if (o->eof)
-	    PIOR_Written (&o->reply, NULL);
+	    PIOR_Written (&o->reply, o->wbuf = NULL);
     }
     if (ccmd)
 	PTimer_Watch (&o->timer, ccmd, o->fd, TIMER_NONE);
