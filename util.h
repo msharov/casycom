@@ -91,7 +91,7 @@ static inline void vector_clear (void* vv)
     { CharVector* v = (CharVector*) vv; v->size = 0; }
 static inline void vector_detach (void* vv)
     { CharVector* v = (CharVector*) vv; v->d = NULL; v->size = v->allocated = 0; }
-static inline NONNULL() void vector_attach (void* vv, void* e, size_t n) {
+static inline void vector_attach (void* vv, void* e, size_t n) {
     CharVector* v = (CharVector*) vv;
     assert (!v->d && "This vector is already attached to something. Detach or deallocate first.");
     assert (e && "Attaching requires a non-null pointer");

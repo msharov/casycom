@@ -424,7 +424,7 @@ static MsgLink* casycom_find_or_create_destination (const Msg* msg)
 void casycom_queue_message (Msg* msg)
 {
     #ifndef NDEBUG	// Message validity checks
-	assert (msg && msg->h.interface && (!msg->size || msg->body) && "invalid message");
+	assert (msg->h.interface && (!msg->size || msg->body) && "invalid message");
 	const Factory* destFactory = casycom_find_factory (msg->h.interface);
 	if (!destFactory)
 	    DEBUG_PRINTF ("Error: you must call casycom_register (&f_%s) to use this interface\n", casymsg_interface_name(msg));
