@@ -167,7 +167,7 @@ typedef struct _Ping {
 
 void* Ping_Create (const Msg* msg)
 {
-    Ping* o = (Ping*) xalloc (sizeof(Ping));
+    Ping* o = xalloc (sizeof(Ping));
     o-&gt;reply = casycom_create_reply_proxy (&amp;i_PingR, msg);
     return o;
 }
@@ -222,7 +222,7 @@ typedef struct _App {
 
 void* App_Create (const Msg* msg)
 {
-    static App app = {PROXY_INIT,0};
+    static App app = {};
     if (!app.pingp.interface) {
 	casycom_register (&amp;f_Ping);
 	app.pingp = casycom_create_proxy (&amp;i_Ping, oid_App);

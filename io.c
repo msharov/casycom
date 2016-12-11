@@ -15,7 +15,7 @@ void PIO_Read (const Proxy* pp, CharVector* d)
     Msg* msg = casymsg_begin (pp, method_IO_Read, 8);
     msg->h.interface = &i_IO;
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) d);
+    casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
@@ -24,7 +24,7 @@ void PIO_Write (const Proxy* pp, CharVector* d)
     Msg* msg = casymsg_begin (pp, method_IO_Write, 8);
     msg->h.interface = &i_IO;
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) d);
+    casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
@@ -32,11 +32,11 @@ static void IO_Dispatch (const DIO* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_IO_Read) {
 	RStm is = casymsg_read (msg);
-	CharVector* d = (CharVector*)(uintptr_t) casystm_read_uint64 (&is);
+	CharVector* d = casystm_read_ptr (&is);
 	dtable->IO_Read (o, d);
     } else if (msg->imethod == method_IO_Write) {
 	RStm is = casymsg_read (msg);
-	CharVector* d = (CharVector*)(uintptr_t) casystm_read_uint64 (&is);
+	CharVector* d = casystm_read_ptr (&is);
 	dtable->IO_Write (o, d);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
@@ -57,7 +57,7 @@ void PIOR_Read (const Proxy* pp, CharVector* d)
 {
     Msg* msg = casymsg_begin (pp, method_IOR_Read, 8);
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) d);
+    casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
@@ -65,7 +65,7 @@ void PIOR_Written (const Proxy* pp, CharVector* d)
 {
     Msg* msg = casymsg_begin (pp, method_IOR_Written, 8);
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) d);
+    casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
@@ -73,12 +73,12 @@ static void IOR_Dispatch (const DIOR* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_IOR_Read) {
 	RStm is = casymsg_read (msg);
-	CharVector* d = (CharVector*)(uintptr_t) casystm_read_uint64 (&is);
+	CharVector* d = casystm_read_ptr (&is);
 	if (dtable->IOR_Read)
 	    dtable->IOR_Read (o, d);
     } else if (msg->imethod == method_IOR_Written) {
 	RStm is = casymsg_read (msg);
-	CharVector* d = (CharVector*)(uintptr_t) casystm_read_uint64 (&is);
+	CharVector* d = casystm_read_ptr (&is);
 	if (dtable->IOR_Written)
 	    dtable->IOR_Written (o, d);
     } else
@@ -136,7 +136,7 @@ const Factory f_FdIO;
 
 static void* FdIO_Create (const Msg* msg)
 {
-    FdIO* po = (FdIO*) xalloc (sizeof(FdIO));
+    FdIO* po = xalloc (sizeof(FdIO));
     po->fd = -1;
     po->reply = casycom_create_reply_proxy (&i_IOR, msg);
     po->timer = casycom_create_proxy (&i_Timer, msg->h.dest);

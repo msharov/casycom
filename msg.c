@@ -7,7 +7,7 @@
 
 Msg* casymsg_begin (const Proxy* pp, uint32_t imethod, uint32_t sz)
 {
-    Msg* msg = (Msg*) xalloc (sizeof(Msg));
+    Msg* msg = xalloc (sizeof(Msg));
     msg->h = *pp;
     msg->imethod = imethod;
     msg->fdoffset = NO_FD_IN_MESSAGE;
@@ -20,7 +20,7 @@ void casymsg_from_vector (const Proxy* pp, uint32_t imethod, void* body)
 {
     Msg* msg = casymsg_begin (pp, imethod, 0);
     WStm os = casymsg_write (msg);
-    CharVector* vbody = (CharVector*) body;
+    CharVector* vbody = body;
     size_t asz = Align (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
     vector_reserve (vbody, DivRU(asz,vbody->elsize));
     msg->body = vbody->d;

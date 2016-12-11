@@ -97,6 +97,11 @@ static inline size_t casystm_size_string (const char* v) {
     return Align (sizeof(uint32_t)+l+!!l, 4);
 }
 
+static inline void* casystm_read_ptr (RStm* s)
+    { return (void*)(uintptr_t) casystm_read_uint64(s); }
+static inline void casystm_write_ptr (WStm* s, const void* p)
+    { casystm_write_uint64 (s, (uintptr_t) p); }
+
 #ifdef __cplusplus
 } // namespace
 #endif

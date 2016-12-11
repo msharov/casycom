@@ -108,8 +108,8 @@ void PExtern_Open (const Proxy* pp, int fd, enum EExternType atype, const iid_t*
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
     casystm_write_uint32 (&os, atype);
-    casystm_write_uint64 (&os, (uintptr_t) importedInterfaces);
-    casystm_write_uint64 (&os, (uintptr_t) exportedInterfaces);
+    casystm_write_ptr (&os, importedInterfaces);
+    casystm_write_ptr (&os, exportedInterfaces);
     casymsg_end (msg);
 }
 
@@ -125,8 +125,8 @@ static void PExtern_Dispatch (const DExtern* dtable, void* o, const Msg* msg)
 	RStm is = casymsg_read (msg);
 	int fd = casystm_read_int32 (&is);
 	enum EExternType atype = casystm_read_uint32 (&is);
-	const iid_t* importedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
-	const iid_t* exportedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
+	const iid_t* importedInterfaces = casystm_read_ptr (&is);
+	const iid_t* exportedInterfaces = casystm_read_ptr (&is);
 	dtable->Extern_Open (o, fd, atype, importedInterfaces, exportedInterfaces);
     } else if (msg->imethod == method_Extern_Close)
 	dtable->Extern_Close (o);
@@ -232,7 +232,7 @@ void PExternR_Connected (const Proxy* pp, const ExternInfo* einfo)
     assert (pp->interface == &i_ExternR && "this proxy is for a different interface");
     Msg* msg = casymsg_begin (pp, method_ExternR_Connected, 8);
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) einfo);
+    casystm_write_ptr (&os, einfo);
     casymsg_end (msg);
 }
 
@@ -241,7 +241,7 @@ static void PExternR_Dispatch (const DExternR* dtable, void* o, const Msg* msg)
     assert (dtable->interface == &i_ExternR && "dispatch given dtable for a different interface");
     if (msg->imethod == method_ExternR_Connected) {
 	RStm is = casymsg_read (msg);
-	const ExternInfo* einfo = (const ExternInfo*) casystm_read_uint64 (&is);
+	const ExternInfo* einfo = casystm_read_ptr (&is);
 	if (dtable->ExternR_Connected)
 	    dtable->ExternR_Connected (o, einfo);
     } else
@@ -333,7 +333,7 @@ static void Extern_TimerR_Timer (Extern* o);
 
 static void* Extern_Create (const Msg* msg)
 {
-    Extern* o = (Extern*) xalloc (sizeof(Extern));
+    Extern* o = xalloc (sizeof(Extern));
     vector_push_back (&_Extern_Externs, &o);
     o->reply = casycom_create_reply_proxy (&i_ExternR, msg);
     o->info.oid = o->reply.src;
@@ -348,7 +348,7 @@ static void* Extern_Create (const Msg* msg)
 
 static void Extern_Destroy (void* vo)
 {
-    Extern* o = (Extern*) vo;
+    Extern* o = vo;
     if (o->fd >= 0) {
 	close (o->fd);
 	o->fd = -1;
@@ -710,7 +710,7 @@ static bool Extern_ValidateMessage (Extern* o, Msg* msg)
 	    return false;
 	}
 	// Create the new connection object
-	conn = (COMConn*) vector_emplace_back (&o->conns);
+	conn = vector_emplace_back (&o->conns);
 	conn->proxy = casycom_create_proxy (&i_COM, o->info.oid);
 	// The remote end sets the extid
 	conn->extid = msg->extid;
@@ -942,7 +942,7 @@ typedef struct _COMRelay {
 
 static void* COMRelay_Create (const Msg* msg)
 {
-    COMRelay* o = (COMRelay*) xalloc (sizeof(COMRelay));
+    COMRelay* o = xalloc (sizeof(COMRelay));
     // COM objects are created in one of two ways:
     // 1. By message going out-of-process, via the default object mechanism
     //    This results in msg->h.interface containing the imported interface.
@@ -967,7 +967,7 @@ static void* COMRelay_Create (const Msg* msg)
 
 static void COMRelay_COM_Message (void* vo, Msg* msg)
 {
-    COMRelay* o = (COMRelay*) vo;
+    COMRelay* o = vo;
     // The local object proxy is created in the constructor when the COM
     // object is created by it. When the COM object is created by Extern
     // for an exported interface, then the first message will create the
@@ -988,7 +988,7 @@ static void COMRelay_COM_Message (void* vo, Msg* msg)
 
 static void COMRelay_Destroy (void* vo)
 {
-    COMRelay* o = (COMRelay*) vo;
+    COMRelay* o = vo;
     // The relay is destroyed when:
     // 1. The local object is destroyed. COM delete message is sent to the
     //    remote side as notification.
@@ -1010,7 +1010,7 @@ static void COMRelay_Destroy (void* vo)
 
 static bool COMRelay_Error (void* vo, oid_t eoid, const char* msg)
 {
-    COMRelay* o = (COMRelay*) vo;
+    COMRelay* o = vo;
     // An unhandled error in the local object is forwarded to the remote
     // object. At this point it will be considered handled. The remote
     // will decide whether to delete itself, which will propagate here.
@@ -1031,7 +1031,7 @@ static bool COMRelay_Error (void* vo, oid_t eoid, const char* msg)
 
 static void COMRelay_ObjectDestroyed (void* vo, oid_t oid)
 {
-    COMRelay* o = (COMRelay*) vo;
+    COMRelay* o = vo;
     if (oid == o->externid)	// Extern connection destroyed
 	o->pExtern = NULL;	// no further messages are to be sent there.
     casycom_mark_unused (o);

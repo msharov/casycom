@@ -88,7 +88,7 @@ static VECTOR(WatchList, _timer_WatchList);
 
 void* Timer_Create (const Msg* msg)
 {
-    Timer* o = (Timer*) xalloc (sizeof(Timer));
+    Timer* o = xalloc (sizeof(Timer));
     o->reply = casycom_create_reply_proxy (&i_TimerR, msg);
     o->nextfire = TIMER_NONE;
     o->cmd = WATCH_STOP;
@@ -99,7 +99,7 @@ void* Timer_Create (const Msg* msg)
 
 void Timer_Destroy (void* vo)
 {
-    Timer* o = (Timer*) vo;
+    Timer* o = vo;
     for (int i = _timer_WatchList.size; --i >= 0;)
 	if (_timer_WatchList.d[i] == o)
 	    vector_erase (&_timer_WatchList, i);

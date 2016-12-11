@@ -39,13 +39,13 @@ static const iid_t eil_Ping[] = { &i_Ping, NULL };
 // locations; typically /run for root processes or /run/user/<uid> for
 // processes launched by the user. If you also implement systemd socket
 // activation (see below), any other sockets can be used.
-#define IPCOM_SOCKET_NAME	"ipcom.socket"
+static const char c_IPCOM_SocketName[] = "ipcom.socket";
 
 //----------------------------------------------------------------------
 
 // Singleton App, like in the fwork example
 static void* App_Create (const Msg* msg UNUSED)
-    { static App o = {PROXY_INIT,0,PROXY_INIT,0}; return &o; }
+    { static App o = {}; return &o; }
 static void App_Destroy (void* p UNUSED) {}
 
 static void App_App_Init (App* app, unsigned argc, char* const* argv)
@@ -53,8 +53,8 @@ static void App_App_Init (App* app, unsigned argc, char* const* argv)
     // Process command line arguments to determine mode of operation
     enum {
 	mode_Test,	// Fork and send commands through a socket pair
-	mode_Client,	// Connect to IPCOM_SOCKET_NAME
-	mode_Server,	// Listen at IPCOM_SOCKET_NAME
+	mode_Client,	// Connect to c_IPCOM_SocketName
+	mode_Server,	// Listen at c_IPCOM_SocketName
 	mode_Pipe	// Connect to socket on stdin
     } mode = mode_Test;
 
@@ -129,7 +129,7 @@ static void App_Client (App* app)
     // for connecting to system services, and methods for connecting to TCP services,
     // ConnectIP4, ConnectLocalIP4, etc. See xcom.h.
     //
-    if (0 > PExtern_ConnectUserLocal (&app->externp, IPCOM_SOCKET_NAME, eil_Ping))
+    if (0 > PExtern_ConnectUserLocal (&app->externp, c_IPCOM_SocketName, eil_Ping))
 	// Connect and Bind calls connect or bind immediately, and so can return errors here
 	casycom_error ("Extern_ConnectUserLocal: %s", strerror(errno));
     // Not launching the server, so disable pid checks
@@ -160,7 +160,7 @@ static void App_Server (App* app)
 	// Use BindUserLocal to create the socket in XDG_RUNTIME_DIR,
 	// the standard location for sockets of user services.
 	// See other Bind variants in xsrv.h.
-	if (0 > PExternServer_BindUserLocal (&app->externp, IPCOM_SOCKET_NAME, eil_Ping))
+	if (0 > PExternServer_BindUserLocal (&app->externp, c_IPCOM_SocketName, eil_Ping))
 	    casycom_error ("ExternServer_BindUserLocal: %s", strerror(errno));
     }
 }

@@ -28,7 +28,7 @@ typedef struct _Proxy {
     oid_t	dest;
 } Proxy;
 
-#define PROXY_INIT	{NULL,0,0}
+#define PROXY_INIT	{}
 
 typedef struct _Msg {
     Proxy	h;
@@ -44,8 +44,8 @@ enum {
     NO_FD_IN_MESSAGE = UINT8_MAX,
     MESSAGE_HEADER_ALIGNMENT = 8,
     MESSAGE_BODY_ALIGNMENT = MESSAGE_HEADER_ALIGNMENT,
-    method_Invalid = ((uint32_t)-2),
-    method_CreateObject = ((uint32_t)-1)
+    method_Invalid = (uint32_t)-2,
+    method_CreateObject = (uint32_t)-1
 };
 
 typedef struct _DTable {
@@ -85,9 +85,9 @@ static inline const char* casymsg_signature (const Msg* msg) {
 }
 
 static inline RStm casymsg_read (const Msg* msg)
-    { return (RStm) { (const char*) msg->body, (const char*) msg->body + msg->size }; }
+    { return (RStm) { msg->body, msg->body + msg->size }; }
 static inline WStm casymsg_write (Msg* msg)
-    { return (WStm) { (char*) msg->body, (char*) msg->body + msg->size }; }
+    { return (WStm) { msg->body, msg->body + msg->size }; }
 static inline void casymsg_end (Msg* msg)
     { casycom_queue_message (msg); }
 static inline void casymsg_write_fd (Msg* msg, WStm* os, int fd) {

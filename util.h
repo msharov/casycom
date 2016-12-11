@@ -64,7 +64,7 @@ typedef struct _##name {		\
     const size_t	elsize;		\
 } name
 
-#define VECTOR_INIT(vtype)	{ NULL, 0, 0, sizeof(*(((vtype*)NULL)->d)) }
+#define VECTOR_INIT(vtype)	{ .elsize = sizeof(*(((vtype*)NULL)->d)) }
 #define VECTOR(vtype,name)	vtype name = VECTOR_INIT(vtype)
 #define VECTOR_MEMBER_INIT(vtype,name)	*(size_t*)&(name).elsize = sizeof(*(((vtype*)NULL)->d));
 
@@ -81,18 +81,18 @@ namespace {
 
 static inline void vector_erase (void* v, size_t ep)
     { vector_erase_n (v, ep, 1); }
-static inline void vector_push_back (void* v, const void* e)
-    { vector_insert (v, ((CharVector*)v)->size, e); }
-static inline void* vector_emplace_back (void* v)
-    { return vector_emplace (v, ((CharVector*)v)->size); }
-static inline void vector_pop_back (void* v)
-    { vector_erase (v, ((CharVector*)v)->size-1); }
+static inline void vector_push_back (void* vv, const void* e)
+    { CharVector* v = vv; vector_insert (vv, v->size, e); }
+static inline void* vector_emplace_back (void* vv)
+    { CharVector* v = vv; return vector_emplace (vv, v->size); }
+static inline void vector_pop_back (void* vv)
+    { CharVector* v = vv; vector_erase (vv, v->size-1); }
 static inline void vector_clear (void* vv)
-    { CharVector* v = (CharVector*) vv; v->size = 0; }
+    { CharVector* v = vv; v->size = 0; }
 static inline void vector_detach (void* vv)
-    { CharVector* v = (CharVector*) vv; v->d = NULL; v->size = v->allocated = 0; }
+    { CharVector* v = vv; v->d = NULL; v->size = v->allocated = 0; }
 static inline void vector_attach (void* vv, void* e, size_t n) {
-    CharVector* v = (CharVector*) vv;
+    CharVector* v = vv;
     assert (!v->d && "This vector is already attached to something. Detach or deallocate first.");
     assert (e && "Attaching requires a non-null pointer");
     v->d = e; v->size = v->allocated = n;

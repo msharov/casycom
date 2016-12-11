@@ -48,7 +48,7 @@ const iid_t eil_Ping[] = { &amp;i_Ping, NULL };
 
 void* PingCaller_Create (const Msg* msg)
 {
-    PingCaller* o = (PingCaller*) xalloc (sizeof(PingCaller));
+    PingCaller* o = xalloc (sizeof(PingCaller));
     o-&gt;externp = casycom_create_proxy (&amp;i_Extern, msg-&gt;h.dest);
     PExtern_LaunchPipe ("ipcom", "-p", eil_Ping);
 }

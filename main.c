@@ -24,7 +24,7 @@ static _Atomic(bool) _casycom_OutputQueueLock = false;
 // Last error
 static char* _casycom_Error = NULL;
 // App proxy
-static Proxy _casycom_PApp = PROXY_INIT;
+static Proxy _casycom_PApp = {};
 // Enables debug trace messages
 bool casycom_DebugMsgTrace = false;
 
@@ -165,7 +165,7 @@ Proxy casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest)
     size_t ip = casycom_omap_lower_bound (dest);
     while (ip < _casycom_OMap.size && _casycom_OMap.d[ip].h.dest == dest)
 	++ip;
-    MsgLink* e = (MsgLink*) vector_emplace (&_casycom_OMap, ip);
+    MsgLink* e = vector_emplace (&_casycom_OMap, ip);
     e->factory = casycom_find_factory (iid);
     e->h.interface = iid;
     e->h.src = src;
@@ -349,7 +349,7 @@ static void casycom_destroy_object (MsgLink* ol)
     for (size_t di = 0; di < _casycom_OMap.size; ++di) {
 	if (_casycom_OMap.d[di].h.src == oid) {
 	    casycom_destroy_link_at (di);
-	    di = (size_t)-1;	// recursion will modify OMap, so have to start over
+	    di = SIZE_MAX;	// recursion will modify OMap, so have to start over
 	}
     }
 }
@@ -360,7 +360,7 @@ static inline void casycom_destroy_unused_objects (void)
 	if (_casycom_OMap.d[i].flags & (1<<f_Unused)) {
 	    DEBUG_PRINTF ("[I] Destroying unused object %hu.%s\n", _casycom_OMap.d[i].h.dest, _casycom_OMap.d[i].h.interface->name);
 	    casycom_destroy_object (&_casycom_OMap.d[i]);
-	    i = (size_t)-1;	// start over because casycom_destroy_object modifies OMap
+	    i = SIZE_MAX;	// start over because casycom_destroy_object modifies OMap
 	}
     }
 }
@@ -390,12 +390,12 @@ iid_t casycom_interface_by_name (const char* iname)
     for (size_t i = 0; i < _casycom_ObjectTable.size; ++i) {
 	const Factory* f = _casycom_ObjectTable.d[i];
 	for (const DTable* const* di = (const DTable* const*) f->dtable; *di; ++di)
-	    if (0 == strcmp ((*di)->interface->name, iname))
+	    if (!strcmp ((*di)->interface->name, iname))
 		return (*di)->interface;
     }
     if (_casycom_DefaultObject) {
         iid_t defaultInterface = ((const DTable*)_casycom_DefaultObject->dtable[0])->interface;
-	if (0 == strcmp (defaultInterface->name, iname))
+	if (!strcmp (defaultInterface->name, iname))
 	    return defaultInterface;
     }
     return NULL;
@@ -404,10 +404,9 @@ iid_t casycom_interface_by_name (const char* iname)
 static MsgLink* casycom_find_or_create_destination (const Msg* msg)
 {
     MsgLink* ml;
-    void* no = NULL;
     // Object constructor may create proxies, modifying the link map,
     // so if a new object is created, need to find the link again.
-    for (;;) {
+    for (void* no = NULL;;) {
 	ml = casycom_find_destination (msg->h.dest);
 	if (!ml || ml->o || (ml->o = no))
 	    break;

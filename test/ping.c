@@ -96,7 +96,7 @@ typedef struct _Ping {
 static void* Ping_Create (const Msg* msg)
 {
     printf ("Created Ping %u\n", msg->h.dest);
-    Ping* po = (Ping*) xalloc (sizeof(Ping));
+    Ping* po = xalloc (sizeof(Ping));
     po->reply = casycom_create_reply_proxy (&i_PingR, msg);
     return po;
 }

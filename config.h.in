@@ -7,9 +7,9 @@
 #pragma once
 
 // Define to the one symbol short name of this package.
-#define @PKG_UNAME@_NAME	"@PKG_NAME@"
+#define @PKG_UNAME@_NAME		"@PKG_NAME@"
 // Define to the version of this package.
-#define @PKG_UNAME@_VERSION	@PKG_VERSION@
+#define @PKG_UNAME@_VERSION		@PKG_VERSION@
 // Define to the version string of this package.
 #define @PKG_UNAME@_VERSTRING	"@PKG_VERSTR@"
 // Define to the address where bug reports for this package should be sent.

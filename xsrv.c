@@ -23,7 +23,7 @@ void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterface
     assert (pp->interface == &i_ExternServer && "this proxy is for a different interface");
     Msg* msg = casymsg_begin (pp, method_ExternServer_Open, 8+4+1);
     WStm os = casymsg_write (msg);
-    casystm_write_uint64 (&os, (uintptr_t) exportedInterfaces);
+    casystm_write_ptr (&os, exportedInterfaces);
     casystm_write_int32 (&os, fd);
     casystm_write_bool (&os, closeWhenEmpty);
     casymsg_end (msg);
@@ -40,7 +40,7 @@ static void PExternServer_Dispatch (const DExternServer* dtable, void* o, const 
     assert (dtable->interface == &i_ExternServer && "dispatch given dtable for a different interface");
     if (msg->imethod == method_ExternServer_Open) {
 	RStm is = casymsg_read (msg);
-	const iid_t* exportedInterfaces = (const iid_t*) casystm_read_uint64 (&is);
+	const iid_t* exportedInterfaces = casystm_read_ptr (&is);
 	int fd = casystm_read_int32 (&is);
 	bool closeWhenEmpty = casystm_read_bool (&is);
 	dtable->ExternServer_Open (o, fd, exportedInterfaces, closeWhenEmpty);
@@ -173,7 +173,7 @@ typedef struct _ExternServer {
 
 static void* ExternServer_Create (const Msg* msg)
 {
-    ExternServer* o = (ExternServer*) xalloc (sizeof(ExternServer));
+    ExternServer* o = xalloc (sizeof(ExternServer));
     o->reply = casycom_create_reply_proxy (&i_ExternR, msg);
     o->fd = -1;
     o->timer = casycom_create_proxy (&i_Timer, o->reply.src);

@@ -71,9 +71,9 @@ static inline bool _printable (char c)
 {
     return c >= 32 && c < 127;
 }
-void hexdump (const void* pv, size_t n)
+void hexdump (const void* vp, size_t n)
 {
-    const uint8_t* p = (const uint8_t*) pv;
+    const uint8_t* p = vp;
     char line[65]; line[64] = 0;
     for (size_t i = 0; i < n; i += 16) {
 	memset (line, ' ', sizeof(line)-1);
@@ -94,7 +94,7 @@ void hexdump (const void* pv, size_t n)
 
 void vector_reserve (void* vv, size_t sz)
 {
-    CharVector* v = (CharVector*) vv;
+    CharVector* v = vv;
     if (v->allocated >= sz)
 	return;
     size_t nsz = v->allocated + !v->allocated;
@@ -108,7 +108,7 @@ void vector_reserve (void* vv, size_t sz)
 void vector_deallocate (void* vv)
 {
     assert (vv);
-    CharVector* v = (CharVector*) vv;
+    CharVector* v = vv;
     xfree (v->d);
     v->size = 0;
     v->allocated = 0;
@@ -117,7 +117,7 @@ void vector_deallocate (void* vv)
 void* vector_emplace (void* vv, size_t ip)
 {
     assert (vv);
-    CharVector* v = (CharVector*) vv;
+    CharVector* v = vv;
     assert (ip <= v->size && "out of bounds insert");
     vector_reserve (vv, v->size+1);
     char* ii = v->d + ip * v->elsize;
@@ -130,14 +130,14 @@ void* vector_emplace (void* vv, size_t ip)
 void vector_insert (void* vv, size_t ip, const void* e)
 {
     void* h = vector_emplace (vv, ip);
-    memcpy (h, e, ((CharVector*)vv)->elsize);
+    CharVector* v = vv;
+    memcpy (h, e, v->elsize);
 }
 
 void vector_erase_n (void* vv, size_t ep, size_t n)
 {
-    CharVector* v = (CharVector*) vv;
-    char* ei = v->d + ep * v->elsize;
-    char* eei = v->d + (ep+n) * v->elsize;
+    CharVector* v = vv;
+    char *ei = v->d + ep*v->elsize, *eei = v->d + (ep+n)*v->elsize;
     assert (ep <= v->size && ep+n <= v->size && "out of bounds erase");
     memmove (ei, eei, (v->size - (ep+n)) * v->elsize);
     v->size -= n;
@@ -145,13 +145,12 @@ void vector_erase_n (void* vv, size_t ep, size_t n)
 
 void vector_swap (void* vv1, void* vv2)
 {
-    CharVector* v1 = (CharVector*) vv1;
-    CharVector* v2 = (CharVector*) vv2;
+    CharVector *v1 = vv1, *v2 = vv2;
     assert (v1->elsize == v2->elsize && "can only swap identical vectors");
     CharVector t;
-    memcpy (&t, v1, sizeof(CharVector));
-    memcpy (v1, v2, sizeof(CharVector));
-    memcpy (v2, &t, sizeof(CharVector));
+    memcpy (&t, v1, sizeof(t));
+    memcpy (v1, v2, sizeof(*v1));
+    memcpy (v2, &t, sizeof(*v2));
 }
 
 //}}}-------------------------------------------------------------------

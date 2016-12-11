@@ -21,7 +21,7 @@ typedef struct _App {
 static void* App_Create (const Msg* msg UNUSED)
 {
     // Only one app objects can exist, so use the singleton pattern
-    static App app = {PROXY_INIT,0};
+    static App app = {};
     if (!app.pingp.interface) {	// use the proxy to detect already initialized case
 	// Each addressable object must be registered
 	casycom_register (&f_Ping);

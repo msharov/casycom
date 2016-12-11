@@ -44,7 +44,7 @@ static const iid_t eil_Ping[] = { &i_Ping, NULL };
 
 static void* PingCaller_Create (const Msg* msg)
 {
-    PingCaller* o = (PingCaller*) xalloc (sizeof(PingCaller));
+    PingCaller* o = xalloc (sizeof(PingCaller));
     //
     // Both sides will need an Extern object. PingCaller oid is the
     // destination of the (dummy) message creating this object.
