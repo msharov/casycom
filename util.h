@@ -46,11 +46,13 @@ void hexdump (const void* pv, size_t n) noexcept;
 //}}}-------------------------------------------------------------------
 //{{{ vector
 
+typedef int (*vector_compare_fn_t)(const void*, const void*);
+
 typedef struct _CharVector {
-    char*		d;
-    size_t		size;
-    size_t		allocated;
-    const size_t	elsize;
+    char*	d;
+    size_t	size;
+    size_t	allocated;
+    size_t	elsize;
 } CharVector;
 
 // Declares a vector for the given type.
@@ -66,7 +68,11 @@ typedef struct _##name {		\
 
 #define VECTOR_INIT(vtype)	{ .elsize = sizeof(*(((vtype*)NULL)->d)) }
 #define VECTOR(vtype,name)	vtype name = VECTOR_INIT(vtype)
-#define VECTOR_MEMBER_INIT(vtype,name)	*(size_t*)&(name).elsize = sizeof(*(((vtype*)NULL)->d));
+#define VECTOR_MEMBER_INIT(vtype,name)	vector_init(&(name), sizeof(*(((vtype*)NULL)->d)))
+
+#define vector_begin(v)			(v)->d
+#define vector_end(v)			((v)->d+(v)->size)
+#define vector_foreach(vtype,p,v)	for (vtype *p = vector_begin(v), *p##end = vector_end(v); p < p##end; ++p)
 
 void	vector_reserve (void* v, size_t sz) noexcept;
 void	vector_deallocate (void* v) noexcept;
@@ -74,11 +80,20 @@ void	vector_insert (void* v, size_t ip, const void* e) noexcept NONNULL();
 void*	vector_emplace (void* v, size_t ip) noexcept;
 void	vector_erase_n (void* v, size_t ep, size_t n) noexcept;
 void	vector_swap (void* v1, void* v2) noexcept NONNULL();
+size_t	vector_lower_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
+size_t	vector_upper_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {
 #endif
 
+static inline void vector_init (void* vv, size_t elsz) {
+    CharVector* v = vv;
+    v->d = NULL;
+    v->size = 0;
+    v->allocated = 0;
+    v->elsize = elsz;
+}
 static inline void vector_erase (void* v, size_t ep)
     { vector_erase_n (v, ep, 1); }
 static inline void vector_push_back (void* vv, const void* e)
@@ -97,6 +112,15 @@ static inline void vector_attach (void* vv, void* e, size_t n) {
     assert (e && "Attaching requires a non-null pointer");
     v->d = e; v->size = v->allocated = n;
 }
+static inline NONNULL() void vector_resize (void* vv, size_t sz) {
+    CharVector* v = vv;
+    vector_reserve (v, sz);
+    v->size = sz;
+}
+static inline void NONNULL() vector_insert_sorted (void* vv, vector_compare_fn_t cmp, const void* e)
+    { vector_insert (vv, vector_upper_bound (vv, cmp, e), e); }
+static inline void NONNULL() vector_sort (void* vv, vector_compare_fn_t cmp)
+    { CharVector* v = vv; qsort (v->d, v->size, v->elsize, cmp); }
 
 #ifdef __cplusplus
 } // namespace

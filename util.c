@@ -129,8 +129,8 @@ void* vector_emplace (void* vv, size_t ip)
 
 void vector_insert (void* vv, size_t ip, const void* e)
 {
-    void* h = vector_emplace (vv, ip);
     CharVector* v = vv;
+    void* h = vector_emplace (v, ip);
     memcpy (h, e, v->elsize);
 }
 
@@ -152,6 +152,24 @@ void vector_swap (void* vv1, void* vv2)
     memcpy (v1, v2, sizeof(*v1));
     memcpy (v2, &t, sizeof(*v2));
 }
+
+static size_t _vector_bound (const void* vv, vector_compare_fn_t cmp, const int cmpv, const void* e)
+{
+    const CharVector* v = vv;
+    size_t f = 0, l = v->size;
+    while (f < l) {
+	size_t m = (f+l)/2;
+	if (cmpv > cmp (v->d + m*v->elsize, e))
+	    f = m + 1;
+	else
+	    l = m;
+    }
+    return f;
+}
+size_t vector_lower_bound (const void* vv, vector_compare_fn_t cmp, const void* e)
+    { return _vector_bound (vv, cmp, 0, e); }
+size_t vector_upper_bound (const void* vv, vector_compare_fn_t cmp, const void* e)
+    { return _vector_bound (vv, cmp, 1, e); }
 
 //}}}-------------------------------------------------------------------
 //{{{ Miscellaneous

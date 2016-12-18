@@ -72,7 +72,6 @@ static MsgLink* casycom_link_for_object (const void* o);
 static const DTable* casycom_find_dtable (const Factory* o, iid_t iid);
 static const Factory* casycom_find_factory (iid_t iid);
 static size_t casycom_link_for_proxy (const Proxy* ph);
-static size_t casycom_omap_lower_bound (oid_t oid);
 static void* casycom_create_link_object (MsgLink* ml, const Msg* msg);
 static void casycom_destroy_link_at (size_t l);
 static void casycom_destroy_object (MsgLink* ol);
@@ -141,6 +140,9 @@ static inline void casycom_send_signal_message (void)
 //}}}-------------------------------------------------------------------
 //{{{ Proxies and link table
 
+static int compare_msglink_to_oid (const void* ml, const void* oid)
+    { return ((const MsgLink*)ml)->h.dest - *(const oid_t*)oid; }
+
 /// Creates a proxy to a new object from object \p src, using interface \p iid
 Proxy casycom_create_proxy (iid_t iid, oid_t src)
 {
@@ -162,9 +164,7 @@ Proxy casycom_create_proxy (iid_t iid, oid_t src)
 /// Creates a proxy to existing object \p dest from \p src, using interface \p iid
 Proxy casycom_create_proxy_to (iid_t iid, oid_t src, oid_t dest)
 {
-    size_t ip = casycom_omap_lower_bound (dest);
-    while (ip < _casycom_OMap.size && _casycom_OMap.d[ip].h.dest == dest)
-	++ip;
+    size_t ip = vector_upper_bound (&_casycom_OMap, compare_msglink_to_oid, &dest);
     MsgLink* e = vector_emplace (&_casycom_OMap, ip);
     e->factory = casycom_find_factory (iid);
     e->h.interface = iid;
@@ -193,22 +193,9 @@ void casycom_destroy_proxy (Proxy* pp)
     pp->dest = 0;
 }
 
-static size_t casycom_omap_lower_bound (oid_t oid)
-{
-    size_t first = 0, last = _casycom_OMap.size;
-    while (first < last) {
-	size_t mid = (first + last) / 2;
-	if (_casycom_OMap.d[mid].h.dest < oid)
-	    first = mid + 1;
-	else
-	    last = mid;
-    }
-    return first;
-}
-
 static size_t casycom_link_for_proxy (const Proxy* ph)
 {
-    for (size_t l = casycom_omap_lower_bound (ph->dest);
+    for (size_t l = vector_lower_bound (&_casycom_OMap, compare_msglink_to_oid, &ph->dest);
 		l < _casycom_OMap.size && _casycom_OMap.d[l].h.dest == ph->dest;
 		++l)
 	if (_casycom_OMap.d[l].h.src == ph->src)
@@ -226,7 +213,7 @@ static MsgLink* casycom_link_for_object (const void* o)
 
 static MsgLink* casycom_find_destination (oid_t doid)
 {
-    size_t dp = casycom_omap_lower_bound (doid);
+    size_t dp = vector_lower_bound (&_casycom_OMap, compare_msglink_to_oid, &doid);
     if (dp < _casycom_OMap.size && _casycom_OMap.d[dp].h.dest == doid)
 	return &_casycom_OMap.d[dp];
     return NULL;
