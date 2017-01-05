@@ -72,7 +72,7 @@ typedef struct _##name {		\
 
 #define vector_begin(v)			(v)->d
 #define vector_end(v)			((v)->d+(v)->size)
-#define vector_foreach(vtype,p,v)	for (vtype *p = vector_begin(v), *p##end = vector_end(v); p < p##end; ++p)
+#define vector_foreach(vtype,p,v)	for (vtype *p = vector_begin(&(v)), *p##end = vector_end(&(v)); p < p##end; ++p)
 
 void	vector_reserve (void* v, size_t sz) noexcept;
 void	vector_deallocate (void* v) noexcept;
