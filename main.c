@@ -99,7 +99,11 @@ static void casycom_on_fatal_signal (int sig)
 	#ifndef NDEBUG
 	    casycom_backtrace();
 	#endif
-	exit (qc_ShellSignalQuitOffset+sig);
+	// The exit code should be success when terminated by user
+	int exitcode = EXIT_SUCCESS;
+	if (!(S(sig) & sigset_Quit))
+	    exitcode = qc_ShellSignalQuitOffset+sig;
+	exit (exitcode);
     }
     _Exit (qc_ShellSignalQuitOffset+sig);
 }
