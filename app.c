@@ -13,7 +13,7 @@ enum {
     method_App_Signal
 };
 
-void PApp_Init (const Proxy* pp, unsigned argc, const char* const* argv)
+void PApp_Init (const Proxy* pp, argc_t argc, argv_t argv)
 {
     Msg* msg = casymsg_begin (pp, method_App_Init, 12);
     WStm os = casymsg_write (msg);
@@ -36,8 +36,8 @@ static void PApp_Dispatch (const DApp* dtable, void* o, const Msg* msg)
 {
     if (msg->imethod == method_App_Init) {
 	RStm is = casymsg_read (msg);
-	const char* const* argv = casystm_read_ptr (&is);
-	unsigned argc = casystm_read_uint32 (&is);
+	argv_t argv = casystm_read_ptr (&is);
+	argc_t argc = casystm_read_uint32 (&is);
 	if (dtable->App_Init)
 	    dtable->App_Init (o, argc, argv);
     } else if (msg->imethod == method_App_Signal) {

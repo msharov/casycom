@@ -20,7 +20,7 @@ extern "C" {
 
 void	casycom_init (void) noexcept;
 void	casycom_reset (void) noexcept;
-void	casycom_framework_init (const Factory* oapp, unsigned argc, const char* const* argv) noexcept NONNULL(1);
+void	casycom_framework_init (const Factory* oapp, argc_t argc, argv_t argv) noexcept NONNULL(1);
 int	casycom_main (void) noexcept;
 void	casycom_quit (int exitCode) noexcept;
 bool	casycom_is_quitting (void) noexcept;

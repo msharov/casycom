@@ -62,6 +62,7 @@ void casycom_backtrace (void)
 
 #endif
 
+#ifndef UC_VERSION
 static inline char _num_to_digit (uint8_t b)
 {
     char d = (b & 0xF) + '0';
@@ -88,6 +89,7 @@ void hexdump (const void* vp, size_t n)
 	puts (line);
     }
 }
+#endif
 
 //}}}-------------------------------------------------------------------
 //{{{ vector

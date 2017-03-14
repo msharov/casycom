@@ -38,7 +38,11 @@ static inline int PExternServer_BindIP4 (const Proxy* pp, in_addr_t ip, in_port_
 {
     struct sockaddr_in addr = {
 	.sin_family = PF_INET,
-	.sin_addr = { ip },
+	#ifdef UC_VERSION
+	    .sin_addr = ip,
+	#else
+	    .sin_addr = { ip },
+	#endif
 	.sin_port = port
     };
     return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);

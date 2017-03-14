@@ -533,7 +533,7 @@ void casycom_reset (void)
 }
 
 /// Replaces casycom_init if casycom is the top-level framework in your process
-void casycom_framework_init (const Factory* oapp, unsigned argc, const char* const* argv)
+void casycom_framework_init (const Factory* oapp, argc_t argc, argv_t argv)
 {
     casycom_install_signal_handlers();
     casycom_init();

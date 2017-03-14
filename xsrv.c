@@ -5,7 +5,6 @@
 
 #include "xsrv.h"
 #include "timer.h"
-#include <netinet/ip.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <paths.h>

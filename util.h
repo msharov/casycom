@@ -9,6 +9,14 @@
 
 //{{{ Memory management ------------------------------------------------
 
+// Types for main args
+typedef unsigned	argc_t;
+#ifdef UC_VERSION
+typedef const char**	argv_t;
+#else
+typedef char* const*	argv_t;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
     template <typename T, size_t N> constexpr inline size_t ArraySize (T(&a)[N]) { return N; }
@@ -21,7 +29,9 @@ static inline constexpr size_t Floor (size_t n, size_t grain)	{ return n - n % g
 static inline constexpr size_t Align (size_t n, size_t grain)	{ return Floor (n+grain-1, grain); }
 static inline constexpr size_t DivRU (size_t n1, size_t n2)	{ return (n1 + n2-1) / n2; }
 
+#ifndef UC_VERSION
 static inline const char* strnext (const char* s)		{ return s+strlen(s)+1; }
+#endif
 
 void*	xalloc (size_t sz) noexcept MALLOCLIKE;
 void*	xrealloc (void* p, size_t sz) noexcept MALLOCLIKE;
@@ -41,7 +51,9 @@ void	casycom_backtrace (void) noexcept;
 #define casycom_log(type,...)	syslog(type,__VA_ARGS__)
 #endif
 
+#ifndef UC_VERSION
 void hexdump (const void* pv, size_t n) noexcept;
+#endif
 
 //}}}-------------------------------------------------------------------
 //{{{ vector

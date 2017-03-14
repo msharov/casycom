@@ -7,7 +7,6 @@
 #include "main.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,7 +47,11 @@ static inline int PExtern_ConnectIP4 (const Proxy* pp, in_addr_t ip, in_port_t p
 {
     struct sockaddr_in addr = {
 	.sin_family = PF_INET,
-	.sin_addr = { ip },
+	#ifdef UC_VERSION
+	    .sin_addr = ip,
+	#else
+	    .sin_addr = { ip },
+	#endif
 	.sin_port = port
     };
 #ifndef NDEBUG

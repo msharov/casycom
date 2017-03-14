@@ -12,7 +12,7 @@ extern "C" {
 //----------------------------------------------------------------------
 // PApp
 
-typedef void (*MFN_App_Init)(void* o, unsigned argc, const char* const* argv);
+typedef void (*MFN_App_Init)(void* o, argc_t argc, argv_t argv);
 typedef void (*MFN_App_Signal)(void* o, unsigned sig, pid_t childPid, int childStatus);
 typedef struct _DApp {
     iid_t		interface;
@@ -22,11 +22,11 @@ typedef struct _DApp {
 
 extern const Interface i_App;
 
-void PApp_Init (const Proxy* pp, unsigned argc, const char* const* argv) noexcept NONNULL();
+void PApp_Init (const Proxy* pp, argc_t argc, argv_t argv) noexcept NONNULL();
 void PApp_Signal (const Proxy* pp, unsigned sig, pid_t childPid, int childStatus) noexcept NONNULL();
 
 #define CASYCOM_MAIN(oapp)			\
-int main (int argc, const char* const* argv) {	\
+int main (int argc, argv_t argv) {		\
     casycom_framework_init (&oapp, argc, argv);	\
     return casycom_main();			\
 }
