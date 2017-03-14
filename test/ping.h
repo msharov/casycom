@@ -46,3 +46,7 @@ extern const Interface i_PingR;
 //----------------------------------------------------------------------
 // This is the server object, to pass to casycom_register
 extern const Factory f_Ping;
+
+//----------------------------------------------------------------------
+// Define a synchronous write to avoid race conditions between processes
+#define LOG(...)	{printf(__VA_ARGS__);fflush(stdout);}

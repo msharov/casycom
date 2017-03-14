@@ -95,7 +95,7 @@ typedef struct _Ping {
 // msg->dest is the new object's oid, which may be saved if needed.
 static void* Ping_Create (const Msg* msg)
 {
-    printf ("Created Ping %u\n", msg->h.dest);
+    LOG ("Created Ping %u\n", msg->h.dest);
     Ping* po = xalloc (sizeof(Ping));
     po->reply = casycom_create_reply_proxy (&i_PingR, msg);
     return po;
@@ -104,14 +104,14 @@ static void* Ping_Create (const Msg* msg)
 // Object destructor. If defined, must free the object.
 static void Ping_Destroy (void* o)
 {
-    printf ("Destroy Ping\n");
+    LOG ("Destroy Ping\n");
     xfree (o);
 }
 
 // Method implementing the Ping.Ping interface method
 static void Ping_Ping_Ping (Ping* o, uint32_t u)
 {
-    printf ("Ping: %u, %u total\n", u, ++o->nPings);
+    LOG ("Ping: %u, %u total\n", u, ++o->nPings);
     PPingR_Ping (&o->reply, u);
 }
 

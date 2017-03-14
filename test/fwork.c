@@ -34,7 +34,7 @@ static void* App_Create (const Msg* msg UNUSED)
 static void App_Destroy (void* o UNUSED) {} // Singletons do not need destruction
 
 // Implements the Init method of App interface on the App object. Note the naming convention.
-static void App_App_Init (App* app, unsigned argc UNUSED, const char* const* argv UNUSED)
+static void App_App_Init (App* app, argc_t argc UNUSED, argv_t argv UNUSED)
 {
     // Now the ping object can be accessed using PPing methods
     PPing_Ping (&app->pingp, 1);
@@ -48,7 +48,7 @@ static void App_App_Init (App* app, unsigned argc UNUSED, const char* const* arg
 //
 static void App_PingR_Ping (App* app, uint32_t u)
 {
-    printf ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
+    LOG ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
     casycom_quit (EXIT_SUCCESS);
 }
 

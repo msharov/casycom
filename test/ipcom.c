@@ -48,7 +48,7 @@ static void* App_Create (const Msg* msg UNUSED)
     { static App o = {}; return &o; }
 static void App_Destroy (void* p UNUSED) {}
 
-static void App_App_Init (App* app, unsigned argc, char* const* argv)
+static void App_App_Init (App* app, argc_t argc, argv_t argv)
 {
     // Process command line arguments to determine mode of operation
     enum {
@@ -68,7 +68,7 @@ static void App_App_Init (App* app, unsigned argc, char* const* argv)
 	else if (opt == 'd')
 	    casycom_enable_debug_output();
 	else {
-	    printf ("Usage: ipcom [-csd]\n"
+	    LOG ("Usage: ipcom [-csd]\n"
 		    "  -c\trun as client only\n"
 		    "  -s\trun as server only\n"
 		    "  -p\tattach to socket pipe on stdin\n"
@@ -191,7 +191,7 @@ static void App_ExternR_Connected (App* app, const ExternInfo* einfo)
 	casycom_error ("connected to server that does not support the Ping interface");
 	return;
     }
-    printf ("Connected to server. Imported %zu interface: %s\n", einfo->interfaces.size, einfo->interfaces.d[0]->name);
+    LOG ("Connected to server. Imported %zu interface: %s\n", einfo->interfaces.size, einfo->interfaces.d[0]->name);
     // ExternInfo can be obtained outside this function with casycom_extern_info
     // using the Extern object oid, or with casycom_extern_object_info, using the
     // oid of the COMRelay connecting an object to an Extern object (the COMRelay
@@ -213,7 +213,7 @@ static void App_ExternR_Connected (App* app, const ExternInfo* einfo)
 // message is read from the socket.
 static void App_PingR_Ping (App* app, uint32_t u)
 {
-    printf ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
+    LOG ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
     casycom_quit (EXIT_SUCCESS);
 }
 

@@ -83,7 +83,7 @@ static void PingCaller_ExternR_Connected (PingCaller* o)
 {
     if (!o->serverPid)
 	return;	// the server side will just listen
-    puts ("Connected to server.");
+    LOG ("Connected to server.\n");
     o->pingp = casycom_create_proxy (&i_Ping, o->externp.src);
     // ... which can then be accessed through the proxy methods.
     PPing_Ping (&o->pingp, 1);
@@ -91,7 +91,7 @@ static void PingCaller_ExternR_Connected (PingCaller* o)
 
 static void PingCaller_PingR_Ping (PingCaller* o, uint32_t u)
 {
-    printf ("Ping %u reply received; count %u\n", u, ++o->pingCount);
+    LOG ("Ping %u reply received; count %u\n", u, ++o->pingCount);
     if (o->pingCount < 5)
 	PPing_Ping (&o->pingp, o->pingCount);
     else
@@ -113,7 +113,7 @@ static const Factory f_PingCaller = {
 
 //----------------------------------------------------------------------
 
-static void OnChildSignal (int signo UNUSED) { wait (NULL); }
+static void OnChildSignal (int signo UNUSED) { waitpid (-1, NULL, 0); }
 
 //----------------------------------------------------------------------
 
