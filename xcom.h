@@ -7,6 +7,9 @@
 #include "main.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
+#ifndef NDEBUG
+    #include <arpa/inet.h>
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif
