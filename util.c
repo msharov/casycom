@@ -102,14 +102,13 @@ void vector_reserve (void* vv, size_t sz)
     size_t nsz = v->allocated + !v->allocated;
     while (nsz < sz)
 	nsz *= 2;
-    v->d = (char*) xrealloc (v->d, nsz * v->elsize);
+    v->d = xrealloc (v->d, nsz * v->elsize);
     memset (v->d + v->allocated * v->elsize, 0, (nsz - v->allocated) * v->elsize);
     v->allocated = nsz;
 }
 
 void vector_deallocate (void* vv)
 {
-    assert (vv);
     CharVector* v = vv;
     xfree (v->d);
     v->size = 0;
@@ -118,14 +117,25 @@ void vector_deallocate (void* vv)
 
 void* vector_emplace (void* vv, size_t ip)
 {
-    assert (vv);
     CharVector* v = vv;
     assert (ip <= v->size && "out of bounds insert");
     vector_reserve (vv, v->size+1);
     char* ii = v->d + ip * v->elsize;
-    memmove (ii + v->elsize, ii, (v->size - ip) * v->elsize);
+    memmove (ii + v->elsize, ii, (v->size-ip)*v->elsize);
     memset (ii, 0, v->elsize);
     ++v->size;
+    return ii;
+}
+
+void* vector_emplace_n (void* vv, size_t ip, size_t n)
+{
+    CharVector* v = vv;
+    assert (ip <= v->size && "out of bounds insert");
+    vector_reserve (vv, v->size+n);
+    char* ii = v->d + ip * v->elsize;
+    memmove (ii + n*v->elsize, ii, (v->size-ip)*v->elsize);
+    memset (ii, 0, n*v->elsize);
+    v->size += n;
     return ii;
 }
 
@@ -134,6 +144,13 @@ void vector_insert (void* vv, size_t ip, const void* e)
     CharVector* v = vv;
     void* h = vector_emplace (v, ip);
     memcpy (h, e, v->elsize);
+}
+
+void vector_insert_n (void* vv, size_t ip, const void* e, size_t esz)
+{
+    CharVector* v = vv;
+    void* h = vector_emplace_n (v, ip, esz);
+    memcpy (h, e, esz*v->elsize);
 }
 
 void vector_erase_n (void* vv, size_t ep, size_t n)

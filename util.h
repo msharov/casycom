@@ -86,11 +86,13 @@ typedef struct _##name {		\
 #define vector_end(v)			((v)->d+(v)->size)
 #define vector_foreach(vtype,p,v)	for (vtype *p = vector_begin(&(v)), *p##end = vector_end(&(v)); p < p##end; ++p)
 
-void	vector_reserve (void* v, size_t sz) noexcept;
-void	vector_deallocate (void* v) noexcept;
-void	vector_insert (void* v, size_t ip, const void* e) noexcept NONNULL();
-void*	vector_emplace (void* v, size_t ip) noexcept;
-void	vector_erase_n (void* v, size_t ep, size_t n) noexcept;
+void	vector_reserve (void* v, size_t sz) noexcept NONNULL();
+void	vector_deallocate (void* v) noexcept NONNULL();
+void	vector_insert (void* vv, size_t ip, const void* e) noexcept NONNULL();
+void	vector_insert_n (void* v, size_t ip, const void* e, size_t esz) noexcept NONNULL();
+void*	vector_emplace (void* vv, size_t ip) noexcept NONNULL();
+void*	vector_emplace_n (void* vv, size_t ip, size_t n) noexcept NONNULL();
+void	vector_erase_n (void* v, size_t ep, size_t n) noexcept NONNULL();
 void	vector_swap (void* v1, void* v2) noexcept NONNULL();
 size_t	vector_lower_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
 size_t	vector_upper_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
