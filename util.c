@@ -172,6 +172,14 @@ void vector_swap (void* vv1, void* vv2)
     memcpy (v2, &t, sizeof(*v2));
 }
 
+void vector_copy (void* vv1, const void* vv2)
+{
+    CharVector* v1 = vv1;
+    const CharVector* v2 = vv2;
+    vector_resize (v1, v2->size);
+    memcpy (v1->d, v2->d, v2->size);
+}
+
 static size_t _vector_bound (const void* vv, vector_compare_fn_t cmp, const int cmpv, const void* e)
 {
     const CharVector* v = vv;

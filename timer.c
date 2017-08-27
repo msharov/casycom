@@ -123,7 +123,11 @@ static const char* timestring (casytimer_t t)
     t /= 1000;
     static char tbuf [32];
     memset (tbuf, 0, sizeof(tbuf));
-    ctime_r ((const time_t*) &t, tbuf);
+    #if UC_VERSION
+	ctime_r (t, tbuf);
+    #else
+	ctime_r ((const time_t*) &t, tbuf);
+    #endif
     tbuf[strlen(tbuf)-1] = 0;	// remove newline
     return tbuf;
 }

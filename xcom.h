@@ -7,7 +7,7 @@
 #include "main.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(UC_VERSION)
     #include <arpa/inet.h>
 #endif
 #ifdef __cplusplus
@@ -59,7 +59,11 @@ static inline int PExtern_ConnectIP4 (const Proxy* pp, in_addr_t ip, in_port_t p
     };
 #ifndef NDEBUG
     char addrbuf [64];
-    DEBUG_PRINTF ("[X] Connecting to socket %s:%hu\n", inet_ntop(PF_INET, &addr.sin_addr, addrbuf, sizeof(addrbuf)), port);
+    #ifdef UC_VERSION
+	DEBUG_PRINTF ("[X] Connecting to socket %s:%hu\n", inet_intop(addr.sin_addr, addrbuf, sizeof(addrbuf)), port);
+    #else
+	DEBUG_PRINTF ("[X] Connecting to socket %s:%hu\n", inet_ntop(PF_INET, &addr.sin_addr, addrbuf, sizeof(addrbuf)), port);
+    #endif
 #endif
     return PExtern_Connect (pp, (const struct sockaddr*) &addr, sizeof(addr), importedInterfaces);
 }
@@ -76,7 +80,7 @@ static inline int PExtern_ConnectIP6 (const Proxy* pp, struct in6_addr ip, in_po
 	.sin6_addr = ip,
 	.sin6_port = port
     };
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(UC_VERSION)
     char addrbuf [128];
     DEBUG_PRINTF ("[X] Connecting to socket %s:%hu\n", inet_ntop(PF_INET6, &addr.sin6_addr, addrbuf, sizeof(addrbuf)), port);
 #endif

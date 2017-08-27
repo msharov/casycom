@@ -96,6 +96,7 @@ void	vector_erase_n (void* v, size_t ep, size_t n) noexcept NONNULL();
 void	vector_swap (void* v1, void* v2) noexcept NONNULL();
 size_t	vector_lower_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
 size_t	vector_upper_bound (const void* vv, vector_compare_fn_t cmp, const void* e) noexcept NONNULL();
+void	vector_copy (void* vv1, const void* vv2) noexcept NONNULL();
 
 #ifdef __cplusplus
 namespace {
