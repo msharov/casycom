@@ -113,6 +113,8 @@ static inline void vector_erase (void* v, size_t ep)
     { vector_erase_n (v, ep, 1); }
 static inline void vector_push_back (void* vv, const void* e)
     { CharVector* v = vv; vector_insert (vv, v->size, e); }
+static inline void vector_append_n (void* vv, const void* e, size_t n)
+    { CharVector* v = vv; vector_insert_n (vv, v->size, e, n); }
 static inline void* vector_emplace_back (void* vv)
     { CharVector* v = vv; return vector_emplace (vv, v->size); }
 static inline void vector_pop_back (void* vv)
@@ -132,8 +134,11 @@ static inline NONNULL() void vector_resize (void* vv, size_t sz) {
     vector_reserve (v, sz);
     v->size = sz;
 }
-static inline void NONNULL() vector_insert_sorted (void* vv, vector_compare_fn_t cmp, const void* e)
-    { vector_insert (vv, vector_upper_bound (vv, cmp, e), e); }
+static inline size_t NONNULL() vector_insert_sorted (void* vv, vector_compare_fn_t cmp, const void* e) {
+    size_t ip = vector_upper_bound (vv, cmp, e);
+    vector_insert (vv, ip, e);
+    return ip;
+}
 static inline void NONNULL() vector_sort (void* vv, vector_compare_fn_t cmp)
     { CharVector* v = vv; qsort (v->d, v->size, v->elsize, cmp); }
 
