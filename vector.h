@@ -100,3 +100,31 @@ static inline NONNULL() void vector_sort (void* vv, vector_compare_fn_t cmp)
 #ifdef __cplusplus
 } // namespace
 #endif
+
+//----------------------------------------------------------------------
+
+// This template macro generates ctor, dtor, erase_n, and clear for
+// an object vector type containing objects with otype_ctor and otype_dtor
+// functions defined.
+#define IMPLEMENT_OBJECT_VECTOR_CTOR_DTOR(scope,vtype,otype)\
+	scope void vtype##_ctor (vtype* v)	\
+	    { VECTOR_MEMBER_INIT (vtype, *v); }	\
+	scope void vtype##_erase_n (vtype* v, size_t ep, size_t n)\
+	{					\
+	    for (size_t i = ep; i < ep+n; ++i)	\
+		otype##_dtor (&v->d[i]);	\
+	    vector_erase_n (v, ep, n);		\
+	}					\
+	scope void vtype##_clear (vtype* v)	\
+	    { vtype##_erase_n (v, 0, v->size); }\
+	scope void vtype##_dtor (vtype* v)	\
+	{					\
+	    vtype##_clear (v);			\
+	    vector_deallocate (v);		\
+	}
+// Declarations for the generated functions, if needed
+#define DECLARE_OBJECT_VECTOR_CTOR_DTOR(vtype)\
+	void vtype##_ctor (vtype* v);	\
+	void vtype##_erase_n (vtype* v, size_t ep, size_t n);\
+	void vtype##_clear (vtype* v);	\
+	void vtype##_dtor (vtype* v)
