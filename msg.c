@@ -4,6 +4,7 @@
 // This file is free software, distributed under the MIT License.
 
 #include "main.h"
+#include "vector.h"
 
 Msg* casymsg_begin (const Proxy* pp, uint32_t imethod, uint32_t sz)
 {

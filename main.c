@@ -5,6 +5,7 @@
 
 #include "app.h"
 #include "timer.h"
+#include "vector.h"
 #include <signal.h>
 #include <stdarg.h>
 #include <sys/wait.h>

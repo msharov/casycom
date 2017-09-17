@@ -5,6 +5,7 @@
 
 #pragma once
 #include "main.h"
+#include "vector.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #if !defined(NDEBUG) && !defined(UC_VERSION)

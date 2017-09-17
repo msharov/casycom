@@ -5,6 +5,7 @@
 
 #pragma once
 #include "main.h"
+#include "vector.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -5,6 +5,7 @@
 
 #include "timer.h"
 #include "main.h"
+#include "vector.h"
 #include <time.h>
 
 //----------------------------------------------------------------------
