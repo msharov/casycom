@@ -65,15 +65,43 @@ static size_t casymsg_sigelement_size (char c)
     return 0;
 }
 
-static void casymsg_skip_one_sigelement (const char** sig)
+static const char* casymsg_skip_one_sigelement (const char* sig)
 {
     unsigned parens = 0;
     do {
-	if (**sig == '(')
+	if (*sig == '(')
 	    ++parens;
-	else if (**sig == ')')
+	else if (*sig == ')')
 	    --parens;
-    } while (*++*sig && parens);
+    } while (*++sig && parens);
+    return sig;
+}
+
+static size_t casymsg_sig_alignment (const char* sig)
+{
+    size_t sz = casymsg_sigelement_size (*sig);
+    if (sz)
+	return sz;	// fixed size elements are aligned to size
+    if (*sig == 'a' || *sig == 's')
+	return 4;
+    else if (*sig == '(') {
+	for (const char* elend = casymsg_skip_one_sigelement(sig++)-1; sig < elend; sig = casymsg_skip_one_sigelement(sig)) {
+	    size_t elal = casymsg_sig_alignment (sig);
+	    if (elal > sz)
+		sz = elal;
+	}
+    } else
+	assert (!"Invalid signature element while determining alignment");
+    return sz;
+}
+
+static size_t casymsg_validate_read_align (RStm* buf, size_t sz, size_t grain)
+{
+    size_t alignsz = Align(sz,grain)-sz;
+    if (!casystm_can_read (buf, alignsz))
+	return 0;
+    casystm_read_skip (buf, alignsz);
+    return alignsz;
 }
 
 static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
@@ -86,19 +114,27 @@ static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
 	    return 0;	// invalid data in buf
 	casystm_read_skip (buf, sz);
     } else if (**sig == '(') {				// Structs. Scan forward until ')'.
+	size_t sal = casymsg_sig_alignment (*sig);
 	++*sig;
+	sz += casymsg_validate_read_align (buf, sz, sal);
 	for (size_t ssz; **sig && **sig != ')'; sz += ssz)
 	    if (!(ssz = casymsg_validate_sigelement (sig, buf)))		// invalid data in buf, return 0 as error
 		return 0;
+	sz += casymsg_validate_read_align (buf, sz, sal);
     } else if (**sig == 'a' || **sig == 's') {		// Arrays and strings
 	if (!casystm_can_read (buf, 4))
 	    return 0;
 	uint32_t nel = casystm_read_uint32 (buf);	// number of elements in the array
 	sz += 4;
-	size_t elsz = 1;	// strings are equivalent to "ac"
-	if (*++*sig == 'a')	// arrays are followed by an element sig "a(uqq)"
+	size_t elsz = 1, elal = 4;	// strings are equivalent to "ac"
+	if (*++*sig == 'a') {		// arrays are followed by an element sig "a(uqq)"
 	    elsz = casymsg_sigelement_size (**sig);
+	    elal = casymsg_sig_alignment (*sig);
+	    if (elal < 4)
+		elal = 4;
+	}
 	if (elsz) {		// optimization for the common case of fixed-element array
+	    casystm_read_align (buf, elal);
 	    elsz *= nel;
 	    if (!casystm_can_read (buf, elsz))
 		return 0;
@@ -112,17 +148,13 @@ static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
 	    }
 	}
 	if ((*sig)[-1] == 'a')	// skip the array element sig for arrays; strings do not have one
-	    casymsg_skip_one_sigelement (sig);
+	    *sig = casymsg_skip_one_sigelement (*sig);
 	else {			// for strings, verify zero-termination
 	    casystm_unread (buf, 1);
 	    if (casystm_read_uint8 (buf))
 		return 0;
 	}
-	size_t alignsz = Align(sz,4)-sz;	// at the end, both arrays and strings are aligned to 4-grain
-	if (!casystm_can_read (buf, alignsz))
-	    return 0;
-	casystm_read_skip (buf, alignsz);
-	sz += alignsz;
+	sz += casymsg_validate_read_align (buf, sz, elal);
     }
     return sz;
 }
