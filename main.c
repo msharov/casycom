@@ -470,7 +470,7 @@ static void casycom_do_message_queues (void)
 	const DTable* dtable = casycom_find_dtable (ml->factory, msg->h.interface);
 	((pfn_dispatch) dtable->interface->dispatch) (dtable, ml->o, msg);
 	// After each message, check for generated errors
-	if (_casycom_Error && !casycom_forward_error (msg->h.src, msg->h.dest)) {
+	if (_casycom_Error && !casycom_forward_error (msg->h.dest, msg->h.dest)) {
 	    // If nobody can handle the error, print it and quit
 	    casycom_log (LOG_ERR, "Error: %s\n", _casycom_Error);
 	    casycom_quit (EXIT_FAILURE);
@@ -636,6 +636,7 @@ bool casycom_forward_error (oid_t oid, oid_t eoid)
 	xfree (_casycom_Error);
 	return true;
     }
+    assert (ml->h.src != oid && "an object is never created by itself; use oid_Broadcast as creator for static objects");
     // If not, fail this object and forward to creator
     return casycom_forward_error (ml->h.src, oid);
 }
