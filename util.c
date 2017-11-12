@@ -106,8 +106,11 @@ unsigned sd_listen_fds (void)
 #ifndef UC_VERSION
 const char* executable_in_path (const char* efn, char* exe, size_t exesz)
 {
-    if (efn[0] == '/' || (efn[0] == '.' && (efn[1] == '/' || efn[1] == '.')))
+    if (efn[0] == '/' || (efn[0] == '.' && (efn[1] == '/' || efn[1] == '.'))) {
+	if (0 != access (efn, X_OK))
+	    return NULL;
 	return efn;
+    }
 
     const char* penv = getenv("PATH");
     if (!penv)
