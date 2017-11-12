@@ -213,8 +213,12 @@ int PExtern_LaunchPipe (const Proxy* pp, const char* exe, const char* arg, const
     if (fr == 0) {	// Server side
 	close (socks[0]);
 	dup2 (socks[1], STDIN_FILENO);
-	if (0 > execlp (exe, exe, arg, NULL))
-	    return -1;
+	execlp (exe, exe, arg, NULL);
+
+	// If exec failed, log the error and exit
+	casycom_log (LOG_ERR, "Error: failed to launch pipe to '%s %s': %s\n", exe, arg, strerror(errno));
+	casycom_disable_debug_output();
+	exit (EXIT_FAILURE);
     } else {
 	close (socks[1]);
 	PExtern_Open (pp, socks[0], EXTERN_CLIENT, importedInterfaces, NULL);
