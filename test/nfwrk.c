@@ -188,18 +188,7 @@ int main (void)
 	// sizing the fds array.
 	//
 	size_t nFds = Timer_WatchListSize();
-	//
-	// On the server side, when the client connection is terminated
-	// the Extern object is destroyed. When there are no messages
-	// and no fds being watched, the server should quit. This is
-	// done by casycom_main, but in non-framework mode this
-	// condition is not necessarily a reason to quit. In this example
-	// it is, so add a check for it here.
-	//
-	if (!nFds) {
-	    if (!haveMessages)
-		casycom_quit (EXIT_SUCCESS);
-	} else {
+	if (nFds) {
 	    struct pollfd fds [nFds];
 	    //
 	    // After, or before, filling in the non-casycom fds, casycom
@@ -217,6 +206,17 @@ int main (void)
 	    // Here the results can be checked for non-casycom fds.
 	    // Timer will check casycom fds in casycom_loop_once.
 	    // Nothing else to do, so go to the next iteration.
+	    //
+	} else if (!haveMessages) {
+	    //
+	    // On the server side, when the client connection is terminated
+	    // the Extern object is destroyed. When there are no messages
+	    // and no fds being watched, the server should quit. This is
+	    // done by casycom_main, but in non-framework mode this
+	    // condition is not necessarily a reason to quit. In this example
+	    // it is, so add a check for it here.
+	    //
+	    casycom_quit (EXIT_SUCCESS);
 	}
     }
     return casycom_exit_code();
