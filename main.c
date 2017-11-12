@@ -556,6 +556,8 @@ int casycom_exit_code (void)
     { return _casycom_ExitCode; }
 bool casycom_is_quitting (void)
     { return _casycom_Quitting; }
+bool casycom_is_failed (void)
+    { return _casycom_Error != NULL; }
 
 /// The main event loop. Returns exit code.
 int casycom_main (void)

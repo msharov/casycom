@@ -24,6 +24,7 @@ void	casycom_framework_init (const Factory* oapp, argc_t argc, argv_t argv) noex
 int	casycom_main (void) noexcept;
 void	casycom_quit (int exitCode) noexcept;
 bool	casycom_is_quitting (void) noexcept;
+bool	casycom_is_failed (void) noexcept;
 int	casycom_exit_code (void) noexcept;
 bool	casycom_loop_once (void) noexcept;
 
@@ -61,9 +62,9 @@ static inline Proxy casycom_create_reply_proxy (iid_t iid, const Msg* msg)
 
 #ifndef NDEBUG
 static inline void casycom_enable_debug_output (void)
-    { DEBUG_MSG_TRACE = true; }
+    { casycom_DebugMsgTrace = true; }
 static inline void casycom_disable_debug_output (void)
-    { DEBUG_MSG_TRACE = false; }
+    { casycom_DebugMsgTrace = false; }
 #else
 static inline void casycom_enable_debug_output (void) {}
 static inline void casycom_disable_debug_output (void) {}
