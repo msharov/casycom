@@ -62,7 +62,9 @@ void hexdump (const void* pv, size_t n) noexcept;
 enum { SD_LISTEN_FDS_START = 3 };
 unsigned sd_listen_fds (void) noexcept;
 
-const char* find_exe_in_path (const char* exe, char* exepath, size_t exepathlen) noexcept NONNULL();
+#ifndef UC_VERSION
+const char* executable_in_path (const char* efn, char* exe, size_t exesz) noexcept NONNULL();
+#endif
 
 #ifdef __cplusplus
 namespace {

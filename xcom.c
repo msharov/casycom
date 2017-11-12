@@ -201,27 +201,38 @@ int PExtern_ConnectUserLocal (const Proxy* pp, const char* sockname, const iid_t
 
 int PExtern_LaunchPipe (const Proxy* pp, const char* exe, const char* arg, const iid_t* importedInterfaces)
 {
-    int socks[2];
+    // Check if executable exists before the fork to allow proper error handling
+    char exepath [PATH_MAX];
+    const char* exefp = executable_in_path (exe, ArrayBlock(exepath));
+    if (!exefp) {
+	errno = ENOENT;
+	return -1;
+    }
+
+    // Create socket pipe, will be connected to stdin in server
+    enum { socket_ClientSide, socket_ServerSide, socket_N };
+    int socks [socket_N];
     if (0 > socketpair (PF_LOCAL, SOCK_STREAM| SOCK_NONBLOCK, 0, socks))
 	return -1;
+
     int fr = fork();
     if (fr < 0) {
-	close (socks[0]);
-	close (socks[1]);
+	close (socks[socket_ClientSide]);
+	close (socks[socket_ServerSide]);
 	return -1;
     }
     if (fr == 0) {	// Server side
-	close (socks[0]);
-	dup2 (socks[1], STDIN_FILENO);
-	execlp (exe, exe, arg, NULL);
+	close (socks[socket_ClientSide]);
+	dup2 (socks[socket_ServerSide], STDIN_FILENO);
+	execl (exefp, exe, arg, NULL);
 
 	// If exec failed, log the error and exit
 	casycom_log (LOG_ERR, "Error: failed to launch pipe to '%s %s': %s\n", exe, arg, strerror(errno));
 	casycom_disable_debug_output();
 	exit (EXIT_FAILURE);
-    } else {
-	close (socks[1]);
-	PExtern_Open (pp, socks[0], EXTERN_CLIENT, importedInterfaces, NULL);
+    } else {		// Client side
+	close (socks[socket_ServerSide]);
+	PExtern_Open (pp, socks[socket_ClientSide], EXTERN_CLIENT, importedInterfaces, NULL);
     }
     return socks[0];
 }

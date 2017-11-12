@@ -103,23 +103,27 @@ unsigned sd_listen_fds (void)
     return e ? strtoul (e, NULL, 10) : 0;
 }
 
-const char* find_exe_in_path (const char* exe, char* exepath, size_t exepathlen)
+#ifndef UC_VERSION
+const char* executable_in_path (const char* efn, char* exe, size_t exesz)
 {
-    const char* pathenv = getenv("PATH");
-    if (!pathenv)
-	pathenv = "/usr/bin";
+    if (efn[0] == '/' || (efn[0] == '.' && (efn[1] == '/' || efn[1] == '.')))
+	return efn;
+
+    const char* penv = getenv("PATH");
+    if (!penv)
+	penv = "/bin:/usr/bin:.";
     char path [PATH_MAX];
-    char c, *pend = path;
-    do {
-	*pend++ = ((c = *pathenv++) == ':' ? 0 : c);
-    } while (c);
-    for (const char *p = path; p < pend; p = strnext(p)) {
-	snprintf (exepath, exepathlen, "%s/%s", p, exe);
-	if (access (exepath, X_OK) == 0)
-	    break;
-	exepath[0] = 0;
+    snprintf (ArrayBlock(path), "%s/%s"+3, penv);
+
+    for (char *pf = path, *pl = pf; *pf; pf = pl) {
+	while (*pl && *pl != ':') ++pl;
+	*pl++ = 0;
+	snprintf (exe, exesz, "%s/%s", pf, efn);
+	if (0 == access (exe, X_OK))
+	    return exe;
     }
-    return exepath[0] ? exepath : NULL;
+    return NULL;
 }
+#endif
 
 //}}}-------------------------------------------------------------------
