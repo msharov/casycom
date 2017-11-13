@@ -21,8 +21,8 @@ void* xalloc (size_t sz)
 void* xrealloc (void* p, size_t sz)
 {
     p = realloc (p, sz);
-    if (!p) {
-	casycom_log (LOG_ERR, "out of memory");
+    if (!p && sz) {
+	casycom_log (LOG_ERR, "out of memory\n");
 	exit (EXIT_FAILURE);
     }
     return p;

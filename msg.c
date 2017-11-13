@@ -127,7 +127,7 @@ static size_t casymsg_validate_sigelement (const char** sig, RStm* buf)
 	uint32_t nel = casystm_read_uint32 (buf);	// number of elements in the array
 	sz += 4;
 	size_t elsz = 1, elal = 4;	// strings are equivalent to "ac"
-	if (*++*sig == 'a') {		// arrays are followed by an element sig "a(uqq)"
+	if (*((*sig)++) == 'a') {		// arrays are followed by an element sig "a(uqq)"
 	    elsz = casymsg_sigelement_size (**sig);
 	    elal = casymsg_sig_alignment (*sig);
 	    if (elal < 4)

@@ -14,6 +14,7 @@ void vector_reserve (void* vv, size_t sz)
     size_t nsz = v->allocated + !v->allocated;
     while (nsz < sz)
 	nsz *= 2;
+    assert (v->elsize && "uninitialized vector detected");
     v->d = xrealloc (v->d, nsz * v->elsize);
     memset (v->d + v->allocated * v->elsize, 0, (nsz - v->allocated) * v->elsize);
     v->allocated = nsz;
