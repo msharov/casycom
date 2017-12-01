@@ -25,11 +25,12 @@ BINDIR		:= @bindir@
 INCDIR		:= @includedir@
 LIBDIR		:= @libdir@
 DOCDIR		:= @docdir@
+#PKGCONFIGDIR	:= @pkgconfigdir@
 
 ################ Compiler options ####################################
 
-WARNOPTS	:= -Wall -Wextra -Wredundant-decls -Wshadow @SYSWARNS@
-CFLAGS		:= ${WARNOPTS} -march=native -std=c11 \
+WARNOPTS	:= -Wall -Wextra -Wredundant-decls -Wshadow
+CFLAGS		:= ${WARNOPTS} -std=c11 \
 		-ffunction-sections -fdata-sections
 ifdef DEBUG
     CFLAGS	+= -O0 -ggdb3

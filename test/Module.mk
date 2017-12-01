@@ -36,11 +36,11 @@ ${test/TESTS}: $Otest/%: $Otest/%.o ${test/AOBJS} ${LIBA}
 
 clean:	test/clean
 test/clean:
-	@if [ -d $O/test ]; then\
-	    rm -f ${test/TESTS} ${test/OBJS} ${test/DEPS} ${test/OUTS};\
+	@if [ -d $Otest ]; then\
+	    rm -f ${test/TESTS} ${test/OBJS} ${test/DEPS} ${test/OUTS} $Otest/.d;\
 	    rmdir ${BUILDDIR}/test;\
 	fi
 
-${test/OBJS}: Makefile test/Module.mk ${CONFS} $O.d ${NAME}/config.h
+${test/OBJS}: Makefile test/Module.mk ${CONFS} $Otest/.d config.h
 
 -include ${test/DEPS}

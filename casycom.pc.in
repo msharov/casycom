@@ -1,0 +1,10 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: @PKG_NAME@
+Description: Asynchronous component object library
+Version: @PKG_MAJOR@.@PKG_MINOR@
+Libs: -L${libdir} -lcasycom
+Libs.private: -Wl,-gc-sections
+Cflags: -I${includedir}

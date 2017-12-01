@@ -3,10 +3,10 @@
 ################ Source files ##########################################
 
 SRCS	:= $(wildcard *.c)
-INCS	:= ${NAME}.h $(addprefix ${NAME}/,$(filter-out ${NAME}.h,$(sort $(wildcard *.h) config.h)))
+INCS	:= $(addprefix ${NAME}/,$(filter-out ${NAME}.h,$(sort $(wildcard *.h) config.h)))
 OBJS	:= $(addprefix $O,$(SRCS:.c=.o))
 DEPS	:= ${OBJS:.o=.d}
-CONFS	:= Config.mk config.h
+CONFS	:= Config.mk config.h casycom.pc
 ONAME   := $(notdir $(abspath $O))
 DOCS	:= $(notdir $(wildcard doc/*))
 LIBA_R	:= $Olib${NAME}.a
@@ -31,7 +31,6 @@ ${LIBA}:	${OBJS}
 
 $O%.o:	%.c
 	@echo "    Compiling $< ..."
-	@[ -d $(dir $@) ] || mkdir -p $(dir $@)
 	@${CC} ${CFLAGS} -MMD -MT "$(<:.c=.s) $@" -o $@ -c $<
 
 %.s:	%.c
@@ -44,15 +43,19 @@ $O%.o:	%.c
 
 ifdef INCDIR
 INCSI		:= $(addprefix ${INCDIR}/,${INCS})
-install:	${INCSI}
-${INCSI}: ${INCDIR}/%.h: %.h
+INCR		:= ${INCDIR}/${NAME}.h
+install:	${INCSI} ${INCR}
+${INCSI}: ${INCDIR}/${NAME}/%.h: %.h
+	@echo "Installing $@ ..."
+	@${INSTALLDATA} $< $@
+${INCR}:	${NAME}.h
 	@echo "Installing $@ ..."
 	@${INSTALLDATA} $< $@
 uninstall:	uninstall-incs
 uninstall-incs:
 	@if [ -d ${INCDIR}/${NAME} ]; then\
 	    echo "Removing headers ...";\
-	    rm -f ${INCSI};\
+	    rm -f ${INCSI} ${INCR};\
 	    ${RMPATH} ${INCDIR}/${NAME};\
 	fi
 endif
@@ -84,6 +87,17 @@ uninstall-docs:
 	    ${RMPATH} ${PKGDOCDIR};\
 	fi
 endif
+ifdef PKGCONFIGDIR
+PCI	:= ${PKGCONFIGDIR}/casycom.pc
+install:	${PCI}
+${PCI}:	casycom.pc
+	@echo "Installing $@ ..."
+	@${INSTALLDATA} $< $@
+
+uninstall:	uninstall-pc
+uninstall-pc:
+	@if [ -f ${PCI} ]; then echo "Removing ${PCI} ..."; rm -f ${PCI}; fi
+endif
 
 ################ Maintenance ###########################################
 
@@ -91,25 +105,28 @@ include test/Module.mk
 
 clean:
 	@if [ -h ${ONAME} ]; then\
-	    rm -f $O.d ${LIBA_R} ${LIBA_D} ${OBJS} ${DEPS} ${ONAME};\
+	    rm -f ${LIBA_R} ${LIBA_D} ${OBJS} ${DEPS} $O.d ${ONAME};\
 	    ${RMPATH} ${BUILDDIR};\
 	fi
 
 distclean:	clean
-	@rm -f ${CONFS} ${NAME} config.status
+	@rm -f ${CONFS} config.status
 
 maintainer-clean: distclean
 
-$O.d:   ${BUILDDIR}/.d
+$O.d:	${BUILDDIR}/.d
 	@[ -h ${ONAME} ] || ln -sf ${BUILDDIR} ${ONAME}
-${BUILDDIR}/.d:     Makefile
-	@mkdir -p ${BUILDDIR} && touch ${BUILDDIR}/.d
+$O%/.d:	$O.d
+	@[ -d $(dir $@) ] || mkdir $(dir $@)
+	@touch $@
+${BUILDDIR}/.d:	Makefile
+	@[ -d $(dir $@) ] || mkdir -p $(dir $@)
+	@touch $@
 
 Config.mk:	Config.mk.in
 config.h:	config.h.in
-${OBJS}:	Makefile ${CONFS} $O.d ${NAME}/config.h
-${NAME}/config.h:	config.h
-	@rm -f ${NAME}; ln -s . ${NAME}
+casycom.pc:	casycom.pc.in
+${OBJS}:	Makefile ${CONFS} $O.d config.h
 ${CONFS}:	configure
 	@if [ -x config.status ]; then echo "Reconfiguring ...";\
 	    ./config.status;\

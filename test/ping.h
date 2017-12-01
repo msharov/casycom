@@ -3,7 +3,15 @@
 // Copyright (c) 2015 by Mike Sharov <msharov@users.sourceforge.net>
 // This file is free software, distributed under the MIT License.
 
-#include "../casycom.h"
+// You would normally include casycom.h this way
+//#include <casycom.h>
+
+// But for the purpose of building the tests, local headers are
+// included directly to ensure they are used instead of installed.
+#include "../app.h"
+#include "../timer.h"
+#include "../io.h"
+#include "../xsrv.h"
 
 //----------------------------------------------------------------------
 // For communication between objects, both sides of the link must be
