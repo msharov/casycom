@@ -4,7 +4,7 @@
 ######################################################################
 
 PKG_NAME="casycom"
-PKG_VERSTR="v1.1"
+PKG_VERSTR="v1.2"
 
 MNT_NAME="Mike Sharov"
 MNT_MAIL="zfunebi@hfref.fbheprsbetr.arg"
