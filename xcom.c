@@ -399,8 +399,7 @@ static void Extern_Extern_Open (Extern* o, int fd, enum EExternType atype, const
     if (o->info.isUnixSocket)
 	Extern_SetCredentialsPassing (o, true);
     // To complete the handshake, create the list of export interfaces
-    char exlist [256], *pexlist = &exlist[0];
-    memset (exlist, 0, sizeof(exlist));
+    char exlist[256] = {}, *pexlist = &exlist[0];
     for (const iid_t* ei = o->exportedInterfaces; ei && *ei; ++ei)
 	pexlist += sprintf (pexlist, "%s,", (*ei)->name);
     assert (pexlist < &exlist[ArraySize(exlist)] && "too many exported interfaces");
@@ -539,8 +538,7 @@ static void Extern_Reading (Extern* o)
 	// message: the fixed header (2), the header strings (0), and the
 	// message body. The common case is to read the variable parts
 	// and the fixed header of the next message in each recvmsg call.
-	struct iovec iov[3];
-	memset (iov, 0, sizeof(iov));
+	struct iovec iov[3] = {};
 	if (o->inHRead >= sizeof(o->inHBuf.h)) {
 	    assert (o->inMsg && "the message must be created after the fixed header is read");
 	    iov[0].iov_base = &o->inHBuf.d[o->inHRead];
@@ -554,13 +552,12 @@ static void Extern_Reading (Extern* o)
 	    iov[2].iov_len = sizeof(o->inHBuf.h) - o->inHRead;
 	}
 	// Build struct for recvmsg
-	struct msghdr mh;
-	memset (&mh, 0, sizeof(mh));
-	mh.msg_iov = iov;
-	mh.msg_iovlen = ArraySize(iov);
+	struct msghdr mh = {
+	    .msg_iov = iov,
+	    .msg_iovlen = ArraySize(iov)
+	};
 	// Ancillary space for fd and credentials
-	char cmsgbuf [CMSG_SPACE(sizeof(int)) + CMSG_SPACE(sizeof(struct ucred))];
-	memset (cmsgbuf, 0, sizeof(cmsgbuf));
+	char cmsgbuf [CMSG_SPACE(sizeof(int)) + CMSG_SPACE(sizeof(struct ucred))] = {};
 	mh.msg_control = cmsgbuf;
 	mh.msg_controllen = sizeof(cmsgbuf);
 	// Receive some data
@@ -825,8 +822,7 @@ static bool Extern_Writing (Extern* o)
     while (o->outgoing.size) {
 	Msg* msg = o->outgoing.d[0];
 	// Marshal message header
-	ExtMsgHeaderBuf hbuf;
-	memset (&hbuf, 0, sizeof(hbuf));
+	ExtMsgHeaderBuf hbuf = {};
 	hbuf.h.sz = Align (msg->size, MESSAGE_BODY_ALIGNMENT);
 	hbuf.h.extid = msg->extid;
 	hbuf.h.fdoffset = msg->fdoffset;
@@ -838,8 +834,7 @@ static bool Extern_Writing (Extern* o)
 	char* phend = stpcpy (stpcpy (stpcpy (phstr, iname)+1, mname)+1, msig)+1;
 	hbuf.h.hsz = sizeof(hbuf.h) + Align (phend - phstr, MESSAGE_HEADER_ALIGNMENT);
 	// Create iovecs for output
-	struct iovec iov[2];
-	memset (iov, 0, sizeof(iov));
+	struct iovec iov[2] = {};
 	if (hbuf.h.hsz > o->outHWritten) {
 	    iov[0].iov_base = &hbuf.d[o->outHWritten];
 	    iov[0].iov_len = hbuf.h.hsz - o->outHWritten;
@@ -849,15 +844,14 @@ static bool Extern_Writing (Extern* o)
 	    iov[1].iov_len = hbuf.h.sz - o->outBWritten;
 	}
 	// Build outgoing struct for sendmsg
-	struct msghdr mh;
-	memset (&mh, 0, sizeof(mh));
-	mh.msg_iov = iov;
-	mh.msg_iovlen = ArraySize(iov);
+	struct msghdr mh = {
+	    .msg_iov = iov,
+	    .msg_iovlen = ArraySize(iov)
+	};
 	// Add fd if being passed
-	char fdbuf [CMSG_SPACE(sizeof(int))];
+	char fdbuf [CMSG_SPACE(sizeof(int))] = {};
 	int fdpassed = -1;
 	if (hbuf.h.fdoffset != NO_FD_IN_MESSAGE) {
-	    memset (fdbuf, 0, sizeof(fdbuf));
 	    mh.msg_control = fdbuf;
 	    mh.msg_controllen = sizeof(fdbuf);
 	    struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mh);

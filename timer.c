@@ -122,8 +122,7 @@ void Timer_Timer_Watch (Timer* o, enum ETimerWatchCmd cmd, int fd, casytimer_t t
 static const char* timestring (casytimer_t t)
 {
     t /= 1000;
-    static char tbuf [32];
-    memset (tbuf, 0, sizeof(tbuf));
+    static char tbuf[32] = {};
     #if UC_VERSION
 	ctime_r (t, tbuf);
     #else
