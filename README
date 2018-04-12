@@ -17,4 +17,4 @@ a static library compiled to only 20k, and at only 3k lines of code,
 it is easy to fully review and understand.
 
 Build with ./configure && make check && make install
-Read documentation and tutorials in doc/
+Read documentation and tutorials in docs/
