@@ -213,7 +213,7 @@ static void ExternServer_ObjectDestroyed (void* vo, oid_t oid)
 	casycom_mark_unused (o);
 }
 
-static void ExternServer_TimerR_Timer (ExternServer* o, int fd)
+static void ExternServer_TimerR_Timer (ExternServer* o, int fd, const Msg* msg UNUSED)
 {
     assert (fd == o->fd);
     for (int cfd; 0 <= (cfd = accept (fd, NULL, NULL));) {
@@ -239,7 +239,7 @@ static void ExternServer_ExternServer_Open (ExternServer* o, int fd, const iid_t
     o->exportedInterfaces = exportedInterfaces;
     o->closeWhenEmpty = closeWhenEmpty;
     fcntl (o->fd, F_SETFL, O_NONBLOCK| fcntl (o->fd, F_GETFL));
-    ExternServer_TimerR_Timer (o, fd);
+    ExternServer_TimerR_Timer (o, fd, NULL);
 }
 
 static void ExternServer_ExternServer_Close (ExternServer* o)

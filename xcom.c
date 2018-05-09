@@ -341,7 +341,7 @@ static void Extern_QueueIncomingMessage (Extern* o, Msg* msg);
 static void Extern_QueueOutgoingMessage (Extern* o, Msg* msg);
 static void Extern_Reading (Extern* o);
 static void Extern_SetCredentialsPassing (Extern* o, int enable);
-static void Extern_TimerR_Timer (Extern* o);
+static void Extern_TimerR_Timer (Extern* o, int fd, const Msg* msg);
 
 //}}}2------------------------------------------------------------------
 //{{{2 Interfaces
@@ -441,7 +441,7 @@ static Extern* Extern_FindById (oid_t oid)
     return NULL;
 }
 
-static void Extern_COM_Error (Extern* o, const char* e)
+static void Extern_COM_Error (Extern* o, const char* e, const Msg* msg UNUSED)
 {
     // Error arriving to extid_COM indicates an error in the Extern
     // object on the other side, terminating the connection.
@@ -449,7 +449,7 @@ static void Extern_COM_Error (Extern* o, const char* e)
     Extern_Extern_Close (o);
 }
 
-static void Extern_COM_Export (Extern* o, const char* ilist)
+static void Extern_COM_Export (Extern* o, const char* ilist, const Msg* msg UNUSED)
 {
     // The export list arrives during the handshake and contains a
     // comma-separated list of interfaces exported by the other side.
@@ -467,11 +467,16 @@ static void Extern_COM_Export (Extern* o, const char* ilist)
     PExternR_Connected (&o->reply, &o->info);
 }
 
+static void Extern_COM_Delete (Extern* o, const Msg* msg UNUSED)
+{
+    Extern_Extern_Close (o);
+}
+
 static const DCOM d_Extern_COM = {
     .interface	= &i_COM,
     DMETHOD (Extern, COM_Error),
     DMETHOD (Extern, COM_Export),
-    .COM_Delete	= (MFN_COM_Delete) Extern_Extern_Close
+    DMETHOD (Extern, COM_Delete)
 };
 
 //}}}2------------------------------------------------------------------
@@ -513,7 +518,7 @@ static void Extern_SetCredentialsPassing (Extern* o, int enable)
     }
 }
 
-static void Extern_TimerR_Timer (Extern* o)
+static void Extern_TimerR_Timer (Extern* o, int fd UNUSED, const Msg* msg UNUSED)
 {
     if (o->fd >= 0)
 	Extern_Reading (o);
@@ -813,7 +818,7 @@ static void Extern_QueueOutgoingMessage (Extern* o, Msg* msg)
 	}
     }
     vector_push_back (&o->outgoing, &msg);
-    Extern_TimerR_Timer (o);
+    Extern_TimerR_Timer (o, 0, NULL);
 }
 
 static bool Extern_Writing (Extern* o)
@@ -1048,7 +1053,7 @@ static void COMRelay_ObjectDestroyed (void* vo, oid_t oid)
 
 //----------------------------------------------------------------------
 
-static void COMRelay_COM_Error (COMRelay* o, const char* error)
+static void COMRelay_COM_Error (COMRelay* o, const char* error, const Msg* msg UNUSED)
 {
     // COM_Error is received for errors in the remote object. The remote
     // object is destroyed and COM_Delete will shortly follow. Here, create
@@ -1057,7 +1062,7 @@ static void COMRelay_COM_Error (COMRelay* o, const char* error)
     casycom_forward_error (o->localp.dest, o->localp.src);
 }
 
-static void COMRelay_COM_Delete (COMRelay* o)
+static void COMRelay_COM_Delete (COMRelay* o, const Msg* msg UNUSED)
 {
     // COM_Delete indicates that the remote object has been destroyed.
     o->pExtern = NULL;		// No further messages are to be sent.

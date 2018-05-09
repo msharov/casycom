@@ -79,7 +79,7 @@ static void PingCaller_ForkAndPipe (PingCaller* o)
     }
 }
 
-static void PingCaller_ExternR_Connected (PingCaller* o)
+static void PingCaller_ExternR_Connected (PingCaller* o, const ExternInfo* einfo UNUSED)
 {
     if (!o->serverPid)
 	return;	// the server side will just listen

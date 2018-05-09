@@ -148,7 +148,7 @@ static void FdIO_FdIO_Attach (FdIO* o, int fd)
     o->fd = fd;
 }
 
-static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
+static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED, const Msg* msg UNUSED)
 {
     enum ETimerWatchCmd ccmd = 0;
     if (o->rbuf) {
@@ -210,13 +210,13 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED)
 static void FdIO_IO_Read (FdIO* o, CharVector* d)
 {
     o->rbuf = d;
-    FdIO_TimerR_Timer (o, o->fd);
+    FdIO_TimerR_Timer (o, o->fd, NULL);
 }
 
 static void FdIO_IO_Write (FdIO* o, CharVector* d)
 {
     o->wbuf = d;
-    FdIO_TimerR_Timer (o, o->fd);
+    FdIO_TimerR_Timer (o, o->fd, NULL);
 }
 
 static const DFdIO d_FdIO_FdIO = {
