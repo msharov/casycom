@@ -7,8 +7,6 @@
     <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
     <meta name="Description" content="Technical specification of the casycom wire protocol" />
     <meta name="Keywords" content="Casycom, protocol, specification" />
-    <meta name="author" content="Mike Sharov" />
-    <meta name="date" content="2015-04-11" />
 </head>
 <body>
 <div id="pagectr"><div id="header">
@@ -99,19 +97,19 @@ size of the type.
 Each casycom implementation must implement handlers for the COM interface,
 used for protocol commands. There are three methods currently defined:
 </p><dl>
-<dt><tt>Export (const char* el)</tt>, signature "<tt>s</tt>".</dt>
+<dt><tt>export (const char* el)</tt>, signature "<tt>s</tt>".</dt>
 <dd>Contains a comma-delimited list of names of interfaces creatable
     by the sending side. Reply interfaces are never instantiated
     explicitly and are not included in the list.
 </dd>
-<dt><tt>Error (const char* msg)</tt>, signature "<tt>s</tt>".</dt>
+<dt><tt>error (const char* msg)</tt>, signature "<tt>s</tt>".</dt>
 <dd>Sent by the remote object when it encounters an error.</dd>
-<dt><tt>Delete (void)</tt>, signature "<tt></tt>".</dt>
+<dt><tt>delete (void)</tt>, signature "<tt></tt>".</dt>
 <dd>A notification sent by the remote object when it deletes itself.</dd>
 </dl>
 <p>
 Immediately upon establishing a connection, each side must send an
-<tt>Export</tt> message, listing exported interfaces. Once the message
+<tt>export</tt> message, listing exported interfaces. Once the message
 is received, the handshake is complete and the connection can be used.
 Normal operation involves sending and receiving messages, creating
 objects as needed. This completes the protocol specification.

@@ -19,15 +19,15 @@ typedef char* const*	argv_t;
 
 #ifdef __cplusplus
 extern "C" {
-    template <typename T, size_t N> constexpr inline size_t ArraySize (T(&a)[N]) { return N; }
+    template <typename T, size_t N> constexpr inline size_t ARRAY_SIZE (T(&a)[N]) { return N; }
 #else
-    #define ArraySize(a)	(sizeof(a)/sizeof(a[0]))
+    #define ARRAY_SIZE(a)	(sizeof(a)/sizeof(a[0]))
 #endif
-#define ArrayBlock(a)		a, ArraySize(a)
+#define ARRAY_BLOCK(a)		a, ARRAY_SIZE(a)
 
-static inline constexpr size_t Floor (size_t n, size_t grain)	{ return n - n % grain; }
-static inline constexpr size_t Align (size_t n, size_t grain)	{ return Floor (n+grain-1, grain); }
-static inline constexpr size_t DivRU (size_t n1, size_t n2)	{ return (n1 + n2-1) / n2; }
+static inline constexpr size_t floorg (size_t n, size_t grain)	{ return n - n % grain; }
+static inline constexpr size_t ceilg (size_t n, size_t grain)	{ return floorg (n+grain-1, grain); }
+static inline constexpr size_t divide_ceil (size_t n1,size_t n2){ return (n1 + n2-1) / n2; }
 
 #ifndef UC_VERSION
 static inline const char* strnext (const char* s)		{ return s+strlen(s)+1; }
@@ -74,11 +74,7 @@ namespace {
 static inline void tight_loop_pause (void)
 {
     #if __i386__ || __x86_64__
-	#if __clang__
-	    __asm__ volatile ("rep nop");
-	#else
-	    __builtin_ia32_pause();
-	#endif
+	__builtin_ia32_pause();
     #else
 	usleep (1);
     #endif

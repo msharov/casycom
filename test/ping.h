@@ -25,15 +25,15 @@
 // is to be delivered.
 
 // Method types for the dispatch table
-typedef void (*MFN_Ping_Ping)(void* o, uint32_t v);
+typedef void (*MFN_Ping_ping)(void* o, uint32_t v);
 // The dispatch table for the dispatch method
 typedef struct _DPing {
     const Interface*	interface;	// Pointer to the interface this DTable implements
-    MFN_Ping_Ping	Ping_Ping;	// void Ping_Ping (void* vo, uint32_t u, const Msg* msg)
+    MFN_Ping_ping	Ping_ping;	// void Ping_ping (void* vo, uint32_t u, const Msg* msg)
 } DPing;
 
 // Ping proxy methods, matching the list in DPing
-void PPing_Ping (const Proxy* pp, uint32_t v);
+void PPing_ping (const Proxy* pp, uint32_t v);
 
 // This is the interface object; iid_t is the pointer to it.
 extern const Interface i_Ping;
@@ -42,10 +42,10 @@ extern const Interface i_Ping;
 // Replies are reply interfaces, conventionally named NameR
 // Implementation is the same as above
 
-typedef void (*MFN_PingR_Ping)(void* o, uint32_t v);
+typedef void (*MFN_PingR_ping)(void* o, uint32_t v);
 typedef struct _DPingR {
     const Interface*	interface;
-    MFN_PingR_Ping	PingR_Ping;
+    MFN_PingR_ping	PingR_ping;
 } DPingR;
 void PPingR_Ping (const Proxy* pp, uint32_t v);
 

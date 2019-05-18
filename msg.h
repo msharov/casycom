@@ -10,7 +10,12 @@
 
 typedef uint16_t	oid_t;
 
-enum { oid_Broadcast, oid_App, oid_First };
+enum {
+    oid_Broadcast,
+    oid_App,
+    oid_First,
+    oid_Last = 32000-1
+};
 
 typedef const char*	methodid_t;
 
@@ -44,8 +49,8 @@ enum {
     NO_FD_IN_MESSAGE = UINT8_MAX,
     MESSAGE_HEADER_ALIGNMENT = 8,
     MESSAGE_BODY_ALIGNMENT = MESSAGE_HEADER_ALIGNMENT,
-    method_Invalid = (uint32_t)-2,
-    method_CreateObject = (uint32_t)-1
+    method_invalid = (uint32_t)-2,
+    method_create_object = (uint32_t)-1
 };
 
 typedef struct _DTable {
@@ -75,7 +80,7 @@ namespace {
 
 static inline const char* casymsg_interface_name (const Msg* msg) { return msg->h.interface->name; }
 static inline const char* casymsg_method_name (const Msg* msg) {
-    assert ((msg->imethod == method_CreateObject || casyiface_count_methods(msg->h.interface) > msg->imethod) && "invalid method index in message");
+    assert ((msg->imethod == method_create_object || casyiface_count_methods(msg->h.interface) > msg->imethod) && "invalid method index in message");
     return msg->h.interface->method[(int32_t)msg->imethod];
 }
 static inline const char* casymsg_signature (const Msg* msg) {
@@ -107,7 +112,7 @@ static inline int casymsg_read_fd (const Msg* msg UNUSED, RStm* is) {
 
 static inline void casymsg_default_dispatch (const void* dtable UNUSED, void* o UNUSED, const Msg* msg)
 {
-    if (msg->imethod != method_CreateObject)
+    if (msg->imethod != method_create_object)
 	assert (!"Invalid method index in message");
 }
 

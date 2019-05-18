@@ -8,116 +8,116 @@
 
 //{{{ IO interface -----------------------------------------------------
 
-enum { method_IO_Read, method_IO_Write };
+enum { method_IO_read, method_IO_write };
 
-void PIO_Read (const Proxy* pp, CharVector* d)
+void PIO_read (const Proxy* pp, CharVector* d)
 {
-    Msg* msg = casymsg_begin (pp, method_IO_Read, 8);
+    Msg* msg = casymsg_begin (pp, method_IO_read, 8);
     msg->h.interface = &i_IO;
     WStm os = casymsg_write (msg);
     casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
-void PIO_Write (const Proxy* pp, CharVector* d)
+void PIO_write (const Proxy* pp, CharVector* d)
 {
-    Msg* msg = casymsg_begin (pp, method_IO_Write, 8);
+    Msg* msg = casymsg_begin (pp, method_IO_write, 8);
     msg->h.interface = &i_IO;
     WStm os = casymsg_write (msg);
     casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
-static void IO_Dispatch (const DIO* dtable, void* o, const Msg* msg)
+static void IO_dispatch (const DIO* dtable, void* o, const Msg* msg)
 {
-    if (msg->imethod == method_IO_Read) {
+    if (msg->imethod == method_IO_read) {
 	RStm is = casymsg_read (msg);
 	CharVector* d = casystm_read_ptr (&is);
-	dtable->IO_Read (o, d);
-    } else if (msg->imethod == method_IO_Write) {
+	dtable->IO_read (o, d);
+    } else if (msg->imethod == method_IO_write) {
 	RStm is = casymsg_read (msg);
 	CharVector* d = casystm_read_ptr (&is);
-	dtable->IO_Write (o, d);
+	dtable->IO_write (o, d);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
 const Interface i_IO = {
     .name       = "IO",
-    .dispatch   = IO_Dispatch,
-    .method     = { "Read\0x", "Write\0x", NULL }
+    .dispatch   = IO_dispatch,
+    .method     = { "read\0x", "write\0x", NULL }
 };
 
 //}}}-------------------------------------------------------------------
 //{{{ IOR interface
 
-enum { method_IOR_Read, method_IOR_Written };
+enum { method_IOR_read, method_IOR_written };
 
-void PIOR_Read (const Proxy* pp, CharVector* d)
+void PIOR_read (const Proxy* pp, CharVector* d)
 {
-    Msg* msg = casymsg_begin (pp, method_IOR_Read, 8);
+    Msg* msg = casymsg_begin (pp, method_IOR_read, 8);
     WStm os = casymsg_write (msg);
     casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
-void PIOR_Written (const Proxy* pp, CharVector* d)
+void PIOR_written (const Proxy* pp, CharVector* d)
 {
-    Msg* msg = casymsg_begin (pp, method_IOR_Written, 8);
+    Msg* msg = casymsg_begin (pp, method_IOR_written, 8);
     WStm os = casymsg_write (msg);
     casystm_write_ptr (&os, d);
     casymsg_end (msg);
 }
 
-static void IOR_Dispatch (const DIOR* dtable, void* o, const Msg* msg)
+static void IOR_dispatch (const DIOR* dtable, void* o, const Msg* msg)
 {
-    if (msg->imethod == method_IOR_Read) {
+    if (msg->imethod == method_IOR_read) {
 	RStm is = casymsg_read (msg);
 	CharVector* d = casystm_read_ptr (&is);
-	if (dtable->IOR_Read)
-	    dtable->IOR_Read (o, d);
-    } else if (msg->imethod == method_IOR_Written) {
+	if (dtable->IOR_read)
+	    dtable->IOR_read (o, d);
+    } else if (msg->imethod == method_IOR_written) {
 	RStm is = casymsg_read (msg);
 	CharVector* d = casystm_read_ptr (&is);
-	if (dtable->IOR_Written)
-	    dtable->IOR_Written (o, d);
+	if (dtable->IOR_written)
+	    dtable->IOR_written (o, d);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
 const Interface i_IOR = {
     .name       = "IOR",
-    .dispatch   = IOR_Dispatch,
-    .method     = { "Read\0x", "Written\0x", NULL }
+    .dispatch   = IOR_dispatch,
+    .method     = { "read\0x", "written\0x", NULL }
 };
 
 //}}}-------------------------------------------------------------------
 //{{{ FdIO interface
 
-enum { method_FdIO_Attach };
+enum { method_FdIO_attach };
 
-void PFdIO_Attach (const Proxy* pp, int fd)
+void PFdIO_attach (const Proxy* pp, int fd)
 {
-    Msg* msg = casymsg_begin (pp, method_FdIO_Attach, 4);
+    Msg* msg = casymsg_begin (pp, method_FdIO_attach, 4);
     WStm os = casymsg_write (msg);
     casystm_write_int32 (&os, fd);
     casymsg_end (msg);
 }
 
-static void FdIO_Dispatch (const DFdIO* dtable, void* o, const Msg* msg)
+static void FdIO_dispatch (const DFdIO* dtable, void* o, const Msg* msg)
 {
-    if (msg->imethod == method_FdIO_Attach) {
+    if (msg->imethod == method_FdIO_attach) {
 	RStm is = casymsg_read (msg);
 	int fd = casystm_read_int32 (&is);
-	dtable->FdIO_Attach (o, fd);
+	dtable->FdIO_attach (o, fd);
     } else
 	casymsg_default_dispatch (dtable, o, msg);
 }
 
 const Interface i_FdIO = {
     .name       = "FdIO",
-    .dispatch   = FdIO_Dispatch,
-    .method     = { "Attach\0i", NULL }
+    .dispatch   = FdIO_dispatch,
+    .method     = { "attach\0i", NULL }
 };
 
 //}}}-------------------------------------------------------------------
@@ -134,7 +134,7 @@ typedef struct _FdIO {
 
 const Factory f_FdIO;
 
-static void* FdIO_Create (const Msg* msg)
+static void* FdIO_create (const Msg* msg)
 {
     FdIO* po = xalloc (sizeof(FdIO));
     po->fd = -1;
@@ -143,12 +143,12 @@ static void* FdIO_Create (const Msg* msg)
     return po;
 }
 
-static void FdIO_FdIO_Attach (FdIO* o, int fd)
+static void FdIO_FdIO_attach (FdIO* o, int fd)
 {
     o->fd = fd;
 }
 
-static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED, const Msg* msg UNUSED)
+static void FdIO_TimerR_timer (FdIO* o, int fd UNUSED, const Msg* msg UNUSED)
 {
     enum ETimerWatchCmd ccmd = 0;
     if (o->rbuf) {
@@ -171,10 +171,10 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED, const Msg* msg UNUSED)
 		o->rbuf->size += r;
 	    }
 	    if (rbufsz != o->rbuf->size || o->eof)
-		PIOR_Read (&o->reply, o->rbuf);
+		PIOR_read (&o->reply, o->rbuf);
 	}
 	if (o->eof)
-	    PIOR_Read (&o->reply, o->rbuf = NULL);
+	    PIOR_read (&o->reply, o->rbuf = NULL);
     }
     if (o->wbuf) {
 	if (!o->eof) {
@@ -196,44 +196,44 @@ static void FdIO_TimerR_Timer (FdIO* o, int fd UNUSED, const Msg* msg UNUSED)
 		vector_erase_n (o->wbuf, 0, r);
 	    }
 	    if (wbufsize != o->wbuf->size && (!o->wbuf->size || o->eof))
-		PIOR_Written (&o->reply, o->wbuf);
+		PIOR_written (&o->reply, o->wbuf);
 	    if (!o->wbuf->size)	// stop writing when done
 		o->wbuf = NULL;
 	}
 	if (o->eof)
-	    PIOR_Written (&o->reply, o->wbuf = NULL);
+	    PIOR_written (&o->reply, o->wbuf = NULL);
     }
     if (ccmd)
-	PTimer_Watch (&o->timer, ccmd, o->fd, TIMER_NONE);
+	PTimer_watch (&o->timer, ccmd, o->fd, TIMER_NONE);
 }
 
-static void FdIO_IO_Read (FdIO* o, CharVector* d)
+static void FdIO_IO_read (FdIO* o, CharVector* d)
 {
     o->rbuf = d;
-    FdIO_TimerR_Timer (o, o->fd, NULL);
+    FdIO_TimerR_timer (o, o->fd, NULL);
 }
 
-static void FdIO_IO_Write (FdIO* o, CharVector* d)
+static void FdIO_IO_write (FdIO* o, CharVector* d)
 {
     o->wbuf = d;
-    FdIO_TimerR_Timer (o, o->fd, NULL);
+    FdIO_TimerR_timer (o, o->fd, NULL);
 }
 
 static const DFdIO d_FdIO_FdIO = {
     .interface = &i_FdIO,
-    DMETHOD (FdIO, FdIO_Attach)
+    DMETHOD (FdIO, FdIO_attach)
 };
 static const DIO d_FdIO_IO = {
     .interface = &i_IO,
-    DMETHOD (FdIO, IO_Read),
-    DMETHOD (FdIO, IO_Write)
+    DMETHOD (FdIO, IO_read),
+    DMETHOD (FdIO, IO_write)
 };
 static const DTimerR d_FdIO_TimerR = {
     .interface = &i_TimerR,
-    DMETHOD (FdIO, TimerR_Timer)
+    DMETHOD (FdIO, TimerR_timer)
 };
 const Factory f_FdIO = {
-    .Create = FdIO_Create,
+    .create = FdIO_create,
     .dtable = { &d_FdIO_FdIO, &d_FdIO_IO, &d_FdIO_TimerR, NULL }
 };
 

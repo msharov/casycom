@@ -14,11 +14,11 @@
 //
 typedef struct _App {
     Proxy	pingp;
-    unsigned	pingCount;
+    unsigned	npings;
 } App;
 
 // App object constructor. Note the naming convention, used in lieu of C++ class scope
-static void* App_Create (const Msg* msg UNUSED)
+static void* App_create (const Msg* msg UNUSED)
 {
     // Only one app objects can exist, so use the singleton pattern
     static App app = {};
@@ -31,24 +31,24 @@ static void* App_Create (const Msg* msg UNUSED)
     return &app;
 }
 
-static void App_Destroy (void* o UNUSED) {} // Singletons do not need destruction
+static void App_destroy (void* o UNUSED) {} // Singletons do not need destruction
 
-// Implements the Init method of App interface on the App object. Note the naming convention.
-static void App_App_Init (App* app, argc_t argc UNUSED, argv_t argv UNUSED)
+// Implements the init method of App interface on the App object. Note the naming convention.
+static void App_App_init (App* app, argc_t argc UNUSED, argv_t argv UNUSED)
 {
     // Now the ping object can be accessed using PPing methods
-    PPing_Ping (&app->pingp, 1);
+    PPing_ping (&app->pingp, 1);
 }
 
-// Implements the Ping method of the PingR interface. In casycom, all method
+// Implements the ping method of the PingR interface. In casycom, all method
 // calls are one-way and can not return a value. The design is instead fully
 // asynchronous, requiring the use of an event loop. Instead of per-method
 // replies, a complete reply interface may be associated with an interface.
 // By convention, reply interfaces are postfixed with an R.
 //
-static void App_PingR_Ping (App* app, uint32_t u)
+static void App_PingR_ping (App* app, uint32_t u)
 {
-    LOG ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
+    LOG ("Ping %u reply received in app; count %u\n", u, ++app->npings);
     casycom_quit (EXIT_SUCCESS);
 }
 
@@ -59,7 +59,7 @@ static void App_PingR_Ping (App* app, uint32_t u)
 //
 static const DApp d_App_App = {
     .interface = &i_App,
-    DMETHOD (App, App_Init)
+    DMETHOD (App, App_init)
 };
 
 // Here PingR is also implemented to receive Ping replies
@@ -73,12 +73,12 @@ static const DApp d_App_App = {
 //
 static const DPingR d_App_PingR = {
     .interface = &i_PingR,
-    DMETHOD (App, PingR_Ping)
+    DMETHOD (App, PingR_ping)
 };
 // The dtables are then listed in the .dtable field of the factory
 static const Factory f_App = {
-    .Create	= App_Create,
-    .Destroy	= App_Destroy,
+    .create	= App_create,
+    .destroy	= App_destroy,
     .dtable	= { &d_App_App, &d_App_PingR, NULL }
 };
 // The default main can be generated with a macro taking the app factory

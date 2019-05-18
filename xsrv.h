@@ -9,32 +9,32 @@
 extern "C" {
 #endif
 
-typedef void (*MFN_ExternServer_Open)(void* vo, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty);
-typedef void (*MFN_ExternServer_Close)(void* vo);
+typedef void (*MFN_ExternServer_open)(void* vo, int fd, const iid_t* exported_interfaces, bool close_when_empty);
+typedef void (*MFN_ExternServer_close)(void* vo);
 typedef struct _DExternServer {
     iid_t interface;
-    MFN_ExternServer_Open ExternServer_Open;
-    MFN_ExternServer_Close ExternServer_Close;
+    MFN_ExternServer_open ExternServer_open;
+    MFN_ExternServer_close ExternServer_close;
 } DExternServer;
 
-void PExternServer_Open (const Proxy* pp, int fd, const iid_t* exportedInterfaces, bool closeWhenEmpty) noexcept NONNULL(1);
-void PExternServer_Close (const Proxy* pp) noexcept NONNULL();
-int  PExternServer_Bind (const Proxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* exportedInterfaces) noexcept NONNULL();
-int  PExternServer_BindLocal (const Proxy* pp, const char* path, const iid_t* exportedInterfaces) noexcept NONNULL();
-int  PExternServer_BindUserLocal (const Proxy* pp, const char* sockname, const iid_t* exportedInterfaces) noexcept NONNULL();
-int  PExternServer_BindSystemLocal (const Proxy* pp, const char* sockname, const iid_t* exportedInterfaces) noexcept NONNULL();
+void PExternServer_open (const Proxy* pp, int fd, const iid_t* exported_interfaces, bool close_when_empty) noexcept NONNULL(1);
+void PExternServer_close (const Proxy* pp) noexcept NONNULL();
+int  PExternServer_bind (const Proxy* pp, const struct sockaddr* addr, socklen_t addrlen, const iid_t* exported_interfaces) noexcept NONNULL();
+int  PExternServer_bind_local (const Proxy* pp, const char* path, const iid_t* exported_interfaces) noexcept NONNULL();
+int  PExternServer_bind_user_local (const Proxy* pp, const char* sockname, const iid_t* exported_interfaces) noexcept NONNULL();
+int  PExternServer_bind_system_local (const Proxy* pp, const char* sockname, const iid_t* exported_interfaces) noexcept NONNULL();
 
 extern const Interface i_ExternServer;
 extern const Factory f_ExternServer;
 
-//{{{ PExternServer_Bind variants --------------------------------------
+//{{{ PExternServer_bind variants --------------------------------------
 
 #ifdef __cplusplus
 namespace {
 #endif
 
 /// Create local IPv4 socket at given ip and port
-static inline int PExternServer_BindIP4 (const Proxy* pp, in_addr_t ip, in_port_t port, const iid_t* exportedInterfaces)
+static inline int PExternServer_bind_ip4 (const Proxy* pp, in_addr_t ip, in_port_t port, const iid_t* exported_interfaces)
 {
     struct sockaddr_in addr = {
 	.sin_family = PF_INET,
@@ -45,33 +45,33 @@ static inline int PExternServer_BindIP4 (const Proxy* pp, in_addr_t ip, in_port_
 	#endif
 	.sin_port = port
     };
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    return PExternServer_bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exported_interfaces);
 }
 
 /// Create local IPv4 socket at given port on the loopback interface
-static inline int PExternServer_BindLocalIP4 (const Proxy* pp, in_port_t port, const iid_t* exportedInterfaces)
-    { return PExternServer_BindIP4 (pp, INADDR_LOOPBACK, port, exportedInterfaces); }
+static inline int PExternServer_bind_local_ip4 (const Proxy* pp, in_port_t port, const iid_t* exported_interfaces)
+    { return PExternServer_bind_ip4 (pp, INADDR_LOOPBACK, port, exported_interfaces); }
 
 /// Create local IPv6 socket at given ip and port
-static inline int PExternServer_BindIP6 (const Proxy* pp, struct in6_addr ip, in_port_t port, const iid_t* exportedInterfaces)
+static inline int PExternServer_bind_ip6 (const Proxy* pp, struct in6_addr ip, in_port_t port, const iid_t* exported_interfaces)
 {
     struct sockaddr_in6 addr = {
 	.sin6_family = PF_INET6,
 	.sin6_addr = ip,
 	.sin6_port = port
     };
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    return PExternServer_bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exported_interfaces);
 }
 
 /// Create local IPv6 socket at given ip and port
-static inline int PExternServer_BindLocalIP6 (const Proxy* pp, in_port_t port, const iid_t* exportedInterfaces)
+static inline int PExternServer_bind_local_ip6 (const Proxy* pp, in_port_t port, const iid_t* exported_interfaces)
 {
     struct sockaddr_in6 addr = {
 	.sin6_family = PF_INET6,
 	.sin6_addr = IN6ADDR_LOOPBACK_INIT,
 	.sin6_port = port
     };
-    return PExternServer_Bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exportedInterfaces);
+    return PExternServer_bind (pp, (const struct sockaddr*) &addr, sizeof(addr), exported_interfaces);
 }
 
 #ifdef __cplusplus

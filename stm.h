@@ -36,7 +36,7 @@ static inline void casystm_read_data (RStm* s, void* buf, size_t sz)
 static inline bool casystm_is_read_aligned (const RStm* s, size_t grain)
     { return !(((uintptr_t)s->_p) % grain); }
 static inline void casystm_read_align (RStm* s, size_t grain)
-    { s->_p = (const char*) Align ((uintptr_t) s->_p, grain); }
+    { s->_p = (const char*) ceilg ((uintptr_t) s->_p, grain); }
 
 static inline size_t casystm_write_available (const RStm* s)
     { return s->_end - s->_p; }
@@ -94,7 +94,7 @@ static inline void casystm_write_align (WStm* s, size_t grain) {
 
 static inline size_t casystm_size_string (const char* v) {
     size_t l = v ? strlen(v) : 0;
-    return Align (sizeof(uint32_t)+l+!!l, 4);
+    return ceilg (sizeof(uint32_t)+l+!!l, 4);
 }
 
 static inline void* casystm_read_ptr (RStm* s)

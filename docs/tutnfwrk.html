@@ -8,8 +8,6 @@
     <meta http-equiv="Content-Type" content="text/xhtml+xml; charset=ISO-8859-1" />
     <meta name="Description" content="Non-framework operation" />
     <meta name="Keywords" content="casycom, tutorial" />
-    <meta name="author" content="Mike Sharov" />
-    <meta name="date" content="2015-04-11" />
 </head>
 <body>
 <div id="pagectr"><div id="header">
@@ -23,12 +21,12 @@ loop and requiring a root app object, but sometimes an application already
 uses an event-driven framework and its message loop. This tutorial
 demonstrates how to integrate casycom message loop into another.
 </p><pre>
-void OnChildSignal (int signo) { wait (NULL); }
+void on_child_signal (int signo) { wait (NULL); }
 
 int main (void)
 {
     casycom_init();
-    signal (SIGCHLD, OnChildSignal);
+    signal (SIGCHLD, on_child_signal);
     casycom_enable_externs();
 </pre><p>
 To manually initialize casycom in non-framework mode, call
@@ -46,34 +44,34 @@ typedef struct _PingCaller {
 
 const iid_t eil_Ping[] = { &amp;i_Ping, NULL };
 
-void* PingCaller_Create (const Msg* msg)
+void* PingCaller_create (const Msg* msg)
 {
     PingCaller* o = xalloc (sizeof(PingCaller));
     o-&gt;externp = casycom_create_proxy (&amp;i_Extern, msg-&gt;h.dest);
-    PExtern_LaunchPipe ("ipcom", "-p", eil_Ping);
+    PExtern_launch_pipe ("ipcom", "-p", eil_Ping);
 }
 
-void PingCaller_ExternR_Connected (PingCaller* o)
+void PingCaller_ExternR_connected (PingCaller* o)
 {
     o-&gt;pingp = casycom_create_proxy (&amp;i_Ping, o-&gt;externp.src);
-    PPing_Ping (&amp;o-&gt;pingp, 1);
+    PPing_ping (&amp;o-&gt;pingp, 1);
 }
 
-void PingCaller_PingR_Ping (PingCaller* o, uint32_t u)
+void PingCaller_PingR_ping (PingCaller* o, uint32_t u)
 {
     casycom_quit (EXIT_SUCCESS);
 }
 
 const DPingR d_PingCaller_PingR = {
     .interface = &amp;i_PingR,
-    DMETHOD (PingCaller, PingR_Ping)
+    DMETHOD (PingCaller, PingR_ping)
 };
 const DExternR d_PingCaller_ExternR = {
     .interface = &amp;i_ExternR,
-    DMETHOD (PingCaller, ExternR_Connected)
+    DMETHOD (PingCaller, ExternR_connected)
 };
 const Factory f_PingCaller = {
-    .Create	= PingCaller_Create,
+    .create	= PingCaller_create,
     .dtable	= { &amp;d_PingCaller_PingR, &amp;d_PingCaller_ExternR, NULL }
 };
 
@@ -89,7 +87,7 @@ Because there is no App, no casycom objects exist initially. Objects
 are normally created when they are needed to receive a message. But
 an object can also be created manually by one of the interfaces it
 supports. Casycom always requires messages to be passed between objects,
-so an object must be created to send the <tt>Ping</tt> message. Here,
+so an object must be created to send the <tt>ping</tt> message. Here,
 the <tt>PingCaller</tt> object is defined, and then created using
 <tt>casycom_create_object</tt> by instantiating interface <tt>PingR</tt>.
 </p><p>
@@ -104,11 +102,11 @@ int main (void)
     ...
     while (!casycom_is_quitting()) {
 	bool haveMessages = casycom_loop_once();
-	size_t nFds = Timer_WatchListSize();
+	size_t nFds = Timer_watch_list_size();
 	if (nFds) {
 	    struct pollfd fds [nFds];
 	    int timeout = 0;
-	    nFds = Timer_WatchListForPoll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &amp;timeout);
+	    nFds = Timer_watch_list_for_poll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &amp;timeout);
 	    poll (fds, nFds, timeout);
 	}
     }
@@ -133,8 +131,8 @@ but only check the fds for the requested conditions.
 </p><p>
 The rest of the loop deals with file descriptors and timers being watched
 by casycom. The message loop must provide some way of waiting for them,
-such as by using <tt>poll</tt>. <tt>Timer_WatchListSize</tt> returns the
-number of fds and timers being watched. <tt>Timer_WatchListForPoll</tt>
+such as by using <tt>poll</tt>. <tt>Timer_watch_list_size</tt> returns the
+number of fds and timers being watched. <tt>Timer_watch_list_for_poll</tt>
 will fill the given <tt>pollfd</tt> array and will optionally set a
 timeout to support pure timers in the list.  Additional file descriptors
 can be appended at this point and control passed to <tt>poll</tt> until

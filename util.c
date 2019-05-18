@@ -48,7 +48,7 @@ void casycom_backtrace (void)
 {
 #if HAVE_EXECINFO_H
     void* frames [64];
-    int nFrames = backtrace (ArrayBlock(frames));
+    int nFrames = backtrace (ARRAY_BLOCK(frames));
     if (nFrames <= 1)
 	return;	// Can happen if there is no debugging information
     char** syms = backtrace_symbols (frames, nFrames);
@@ -116,7 +116,7 @@ const char* executable_in_path (const char* efn, char* exe, size_t exesz)
     if (!penv)
 	penv = "/bin:/usr/bin:.";
     char path [PATH_MAX];
-    snprintf (ArrayBlock(path), "%s/%s"+3, penv);
+    snprintf (ARRAY_BLOCK(path), "%s/%s"+3, penv);
 
     for (char *pf = path, *pl = pf; *pf; pf = pl) {
 	while (*pl && *pl != ':') ++pl;

@@ -32,41 +32,41 @@ enum {
 //----------------------------------------------------------------------
 // PTimer
 
-typedef void (*MFN_Timer_Watch)(void* vo, enum ETimerWatchCmd cmd, int fd, casytimer_t timer);
+typedef void (*MFN_Timer_watch)(void* vo, enum ETimerWatchCmd cmd, int fd, casytimer_t timer);
 typedef struct _DTimer {
     iid_t		interface;
-    MFN_Timer_Watch	Timer_Watch;
+    MFN_Timer_watch	Timer_watch;
 } DTimer;
 
 extern const Interface i_Timer;
 
 //----------------------------------------------------------------------
 
-void PTimer_Watch (const Proxy* pp, enum ETimerWatchCmd cmd, int fd, casytimer_t timeoutms);
+void PTimer_watch (const Proxy* pp, enum ETimerWatchCmd cmd, int fd, casytimer_t timeoutms);
 
 //----------------------------------------------------------------------
 // PTimerR
 
-typedef void (*MFN_TimerR_Timer)(void* vo, int fd, const Msg* msg);
+typedef void (*MFN_TimerR_timer)(void* vo, int fd, const Msg* msg);
 typedef struct _DTimerR {
     iid_t		interface;
-    MFN_TimerR_Timer	TimerR_Timer;
+    MFN_TimerR_timer	TimerR_timer;
 } DTimerR;
 
 extern const Interface i_TimerR;
 
 //----------------------------------------------------------------------
 
-void PTimerR_Timer (const Proxy* pp, int fd);
+void PTimerR_timer (const Proxy* pp, int fd);
 
 //----------------------------------------------------------------------
 
 extern const Factory f_Timer;
 
-bool		Timer_RunTimer (int toWait) noexcept;
-casytimer_t	Timer_NowMS (void) noexcept;
-size_t		Timer_WatchListSize (void) noexcept;
-size_t		Timer_WatchListForPoll (struct pollfd* fds, size_t fdslen, int* timeout) noexcept NONNULL(1);
+bool		Timer_run_timer (int toWait) noexcept;
+casytimer_t	Timer_now (void) noexcept;
+size_t		Timer_watch_list_size (void) noexcept;
+size_t		Timer_watch_list_for_poll (struct pollfd* fds, size_t fdslen, int* timeout) noexcept NONNULL(1);
 
 //----------------------------------------------------------------------
 // PTimer inlines
@@ -75,22 +75,22 @@ size_t		Timer_WatchListForPoll (struct pollfd* fds, size_t fdslen, int* timeout)
 namespace {
 #endif
 
-static inline void PTimer_Stop (const Proxy* pp)
-    { PTimer_Watch (pp, WATCH_STOP, -1, TIMER_NONE); }
-static inline void PTimer_Timer (const Proxy* pp, casytimer_t timeoutms)
-    { PTimer_Watch (pp, WATCH_TIMER, -1, timeoutms); }
-static inline void PTimer_WaitRead (const Proxy* pp, int fd)
-    { PTimer_Watch (pp, WATCH_READ, fd, TIMER_NONE); }
-static inline void PTimer_WaitWrite (const Proxy* pp, int fd)
-    { PTimer_Watch (pp, WATCH_WRITE, fd, TIMER_NONE); }
-static inline void PTimer_WaitRdWr (const Proxy* pp, int fd)
-    { PTimer_Watch (pp, WATCH_RDWR, fd, TIMER_NONE); }
-static inline void PTimer_WaitReadWithTimeout (const Proxy* pp, int fd, casytimer_t timeoutms)
-    { PTimer_Watch (pp, WATCH_READ_TIMER, fd, timeoutms); }
-static inline void PTimer_WaitWriteWithTimeout (const Proxy* pp, int fd, casytimer_t timeoutms)
-    { PTimer_Watch (pp, WATCH_WRITE_TIMER, fd, timeoutms); }
-static inline void PTimer_WaitRdWrWithTimeout (const Proxy* pp, int fd, casytimer_t timeoutms)
-    { PTimer_Watch (pp, WATCH_RDWR_TIMER, fd, timeoutms); }
+static inline void PTimer_stop (const Proxy* pp)
+    { PTimer_watch (pp, WATCH_STOP, -1, TIMER_NONE); }
+static inline void PTimer_timer (const Proxy* pp, casytimer_t timeoutms)
+    { PTimer_watch (pp, WATCH_TIMER, -1, timeoutms); }
+static inline void PTimer_wait_read (const Proxy* pp, int fd)
+    { PTimer_watch (pp, WATCH_READ, fd, TIMER_NONE); }
+static inline void PTimer_wait_write (const Proxy* pp, int fd)
+    { PTimer_watch (pp, WATCH_WRITE, fd, TIMER_NONE); }
+static inline void PTimer_wait_rdwr (const Proxy* pp, int fd)
+    { PTimer_watch (pp, WATCH_RDWR, fd, TIMER_NONE); }
+static inline void PTimer_wait_read_with_timeout (const Proxy* pp, int fd, casytimer_t timeoutms)
+    { PTimer_watch (pp, WATCH_READ_TIMER, fd, timeoutms); }
+static inline void PTimer_wait_write_with_timeout (const Proxy* pp, int fd, casytimer_t timeoutms)
+    { PTimer_watch (pp, WATCH_WRITE_TIMER, fd, timeoutms); }
+static inline void PTimer_wait_rdwr_with_timeout (const Proxy* pp, int fd, casytimer_t timeoutms)
+    { PTimer_watch (pp, WATCH_RDWR_TIMER, fd, timeoutms); }
 
 #ifdef __cplusplus
 } // namespace

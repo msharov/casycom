@@ -22,17 +22,17 @@
 
 typedef struct _PingCaller {
     Proxy	pingp;
-    unsigned	pingCount;
+    unsigned	npings;
     Proxy	externp;
-    pid_t	serverPid;
+    pid_t	server_pid;
 } PingCaller;
 
 //----------------------------------------------------------------------
 // Connecting to a server is done as shown in ipcom. In this example,
-// only the PingCaller_ForkAndPipe method is implemented, and both sides
+// only the PingCaller_fork_and_pipe method is implemented, and both sides
 // use the non-framework operation.
 //
-static void PingCaller_ForkAndPipe (PingCaller* o);
+static void PingCaller_fork_and_pipe (PingCaller* o);
 
 // List of imported/exported interfaces
 static const iid_t eil_Ping[] = { &i_Ping, NULL };
@@ -40,9 +40,9 @@ static const iid_t eil_Ping[] = { &i_Ping, NULL };
 //----------------------------------------------------------------------
 // The PingCaller object will serve as the starting point for the outgoing
 // Ping and as the recipient of the PingR reply. On the server side, it
-// receives the ExternR_Connected message and does nothing else.
+// receives the ExternR_connected message and does nothing else.
 
-static void* PingCaller_Create (const Msg* msg)
+static void* PingCaller_create (const Msg* msg)
 {
     PingCaller* o = xalloc (sizeof(PingCaller));
     //
@@ -55,11 +55,11 @@ static void* PingCaller_Create (const Msg* msg)
     // the server and create an Extern connection. Then, on the client
     // side, the Ping request is sent.
     //
-    PingCaller_ForkAndPipe (o);
+    PingCaller_fork_and_pipe (o);
     return o;
 }
 
-static void PingCaller_ForkAndPipe (PingCaller* o)
+static void PingCaller_fork_and_pipe (PingCaller* o)
 {
     // This is the same code as in ipcom
     int socks[2];
@@ -71,49 +71,48 @@ static void PingCaller_ForkAndPipe (PingCaller* o)
     if (fr == 0) {	// Server side
 	close (socks[0]);
 	casycom_register (&f_Ping);	// This is the exported interface
-	PExtern_Open (&o->externp, socks[1], EXTERN_SERVER, NULL, eil_Ping);
+	PExtern_open (&o->externp, socks[1], EXTERN_SERVER, NULL, eil_Ping);
     } else {		// Client side
-	o->serverPid = fr;
+	o->server_pid = fr;
 	close (socks[1]);
-	PExtern_Open (&o->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
+	PExtern_open (&o->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
     }
 }
 
-static void PingCaller_ExternR_Connected (PingCaller* o, const ExternInfo* einfo UNUSED)
+static void PingCaller_ExternR_connected (PingCaller* o, const ExternInfo* einfo UNUSED)
 {
-    if (!o->serverPid)
+    if (!o->server_pid)
 	return;	// the server side will just listen
     LOG ("Connected to server.\n");
     o->pingp = casycom_create_proxy (&i_Ping, o->externp.src);
-    // ... which can then be accessed through the proxy methods.
-    PPing_Ping (&o->pingp, 1);
+    PPing_ping (&o->pingp, 1);
 }
 
-static void PingCaller_PingR_Ping (PingCaller* o, uint32_t u)
+static void PingCaller_PingR_ping (PingCaller* o, uint32_t u)
 {
-    LOG ("Ping %u reply received; count %u\n", u, ++o->pingCount);
-    if (o->pingCount < 5)
-	PPing_Ping (&o->pingp, o->pingCount);
+    LOG ("Ping %u reply received; count %u\n", u, ++o->npings);
+    if (o->npings < 5)
+	PPing_ping (&o->pingp, o->npings);
     else
 	casycom_quit (EXIT_SUCCESS);
 }
 
 static const DPingR d_PingCaller_PingR = {
     .interface = &i_PingR,
-    DMETHOD (PingCaller, PingR_Ping)
+    DMETHOD (PingCaller, PingR_ping)
 };
 static const DExternR d_PingCaller_ExternR = {
     .interface = &i_ExternR,
-    DMETHOD (PingCaller, ExternR_Connected)
+    DMETHOD (PingCaller, ExternR_connected)
 };
 static const Factory f_PingCaller = {
-    .Create	= PingCaller_Create,
+    .create	= PingCaller_create,
     .dtable	= { &d_PingCaller_PingR, &d_PingCaller_ExternR, NULL }
 };
 
 //----------------------------------------------------------------------
 
-static void OnChildSignal (int signo UNUSED) { waitpid (-1, NULL, 0); }
+static void on_child_signal (int signo UNUSED) { waitpid (-1, NULL, 0); }
 
 //----------------------------------------------------------------------
 
@@ -130,7 +129,7 @@ int main (void)
     // Without casycom's signal handlers, need to catch SIGCHLD
     // to cleanly handle the server side's exit.
     //
-    signal (SIGCHLD, OnChildSignal);
+    signal (SIGCHLD, on_child_signal);
     //
     // Because there is no App, no casycom objects exist initially.
     //
@@ -177,17 +176,17 @@ int main (void)
 	// the life of the computer. casycom's Timer object normally
 	// takes care of this, and if no other file descriptors need
 	// watching, the default poll call can be used as:
-	//     Timer_RunTimer (haveMessages ? 0 : -1)
+	//     Timer_run_timer (haveMessages ? 0 : -1)
 	// waiting indefinitely when no messages are present.
 	//
 	// If other fds are being polled, such as the Xlib connection
 	// to the X server, a pollfd list will have to be built here.
-	// Timer_WatchListSize provides an estimate of how many fds
+	// Timer_watch_list_size provides an estimate of how many fds
 	// are being watched. (An estimate because some of them are
 	// just timers) That number is a good starting point for
 	// sizing the fds array.
 	//
-	size_t nFds = Timer_WatchListSize();
+	size_t nFds = Timer_watch_list_size();
 	if (nFds) {
 	    struct pollfd fds [nFds];
 	    //
@@ -197,7 +196,7 @@ int main (void)
 	    // can be provided to support pure timers.
 	    //
 	    int timeout = 0;
-	    nFds = Timer_WatchListForPoll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &timeout);
+	    nFds = Timer_watch_list_for_poll (fds, nFds, (haveMessages || casycom_is_quitting()) ? NULL : &timeout);
 	    //
 	    // Now poll can be called to wait on the results
 	    //

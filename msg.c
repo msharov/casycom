@@ -13,7 +13,7 @@ Msg* casymsg_begin (const Proxy* pp, uint32_t imethod, uint32_t sz)
     msg->imethod = imethod;
     msg->fdoffset = NO_FD_IN_MESSAGE;
     if ((msg->size = sz))
-	msg->body = xalloc (Align (sz, MESSAGE_BODY_ALIGNMENT));
+	msg->body = xalloc (ceilg (sz, MESSAGE_BODY_ALIGNMENT));
     return msg;
 }
 
@@ -22,8 +22,8 @@ void casymsg_from_vector (const Proxy* pp, uint32_t imethod, void* body)
     Msg* msg = casymsg_begin (pp, imethod, 0);
     WStm os = casymsg_write (msg);
     CharVector* vbody = body;
-    size_t asz = Align (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
-    vector_reserve (vbody, DivRU(asz,vbody->elsize));
+    size_t asz = ceilg (vbody->size * vbody->elsize, MESSAGE_BODY_ALIGNMENT);
+    vector_reserve (vbody, divide_ceil (asz,vbody->elsize));
     msg->body = vbody->d;
     msg->size = vbody->size * vbody->elsize;
     vector_detach (vbody);
@@ -59,7 +59,7 @@ static size_t casymsg_sigelement_size (char c)
 {
     static const struct { char sym; uint8_t sz; } syms[] =
 	{{'y',1},{'b',1},{'n',2},{'q',2},{'i',4},{'u',4},{'h',4},{'x',8},{'t',8}};
-    for (unsigned i = 0; i < ArraySize(syms); ++i)
+    for (unsigned i = 0; i < ARRAY_SIZE(syms); ++i)
 	if (syms[i].sym == c)
 	    return syms[i].sz;
     return 0;
@@ -97,7 +97,7 @@ static size_t casymsg_sig_alignment (const char* sig)
 
 static size_t casymsg_validate_read_align (RStm* buf, size_t sz, size_t grain)
 {
-    size_t alignsz = Align(sz,grain)-sz;
+    size_t alignsz = ceilg(sz,grain)-sz;
     if (!casystm_can_read (buf, alignsz))
 	return 0;
     casystm_read_skip (buf, alignsz);

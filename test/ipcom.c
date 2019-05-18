@@ -9,24 +9,27 @@
 
 typedef struct _App {
     Proxy	pingp;
-    unsigned	pingCount;
+    unsigned	npings;
     Proxy	externp;
-    pid_t	serverPid;
+    pid_t	server_pid;
 } App;
 
 //----------------------------------------------------------------------
 // It is easy to connect to and to create object servers with casycom.
 // ipcom illustrates the three common methods of doing so:
-// App_Client demonstrates how to connect to an object server.
-static void App_Client (App* app);
-// App_Server demonstrates how to create an object server.
-static void App_Server (App* app);
-// App_Pipe demonstrates how to create an object server on a socket pipe.
-static void App_Pipe (App* app);
-// App_ForkAndPipe launches object server and connects to it
+// App_client demonstrates how to connect to an object server.
+static void App_client (App* app);
+
+// App_server demonstrates how to create an object server.
+static void App_server (App* app);
+
+// App_pipe demonstrates how to create an object server on a socket pipe.
+static void App_pipe (App* app);
+
+// App_fork_and_pipe launches object server and connects to it
 // using a socketpair pipe. This can be used for private servers,
 // but here it is just to make running the automated test easy.
-static void App_ForkAndPipe (App* app);
+static void App_fork_and_pipe (App* app);
 
 // When you run an object server, you must specify a list of interfaces
 // it is capable of instantiating. In this example, the only interface
@@ -39,32 +42,32 @@ static const iid_t eil_Ping[] = { &i_Ping, NULL };
 // locations; typically /run for root processes or /run/user/<uid> for
 // processes launched by the user. If you also implement systemd socket
 // activation (see below), any other sockets can be used.
-static const char c_IPCOM_SocketName[] = "ipcom.socket";
+static const char c_IPCOM_socket_name[] = "ipcom.socket";
 
 //----------------------------------------------------------------------
 
 // Singleton App, like in the fwork example
-static void* App_Create (const Msg* msg UNUSED)
+static void* App_create (const Msg* msg UNUSED)
     { static App o = {}; return &o; }
-static void App_Destroy (void* p UNUSED) {}
+static void App_destroy (void* p UNUSED) {}
 
-static void App_App_Init (App* app, argc_t argc, argv_t argv)
+static void App_App_init (App* app, argc_t argc, argv_t argv)
 {
     // Process command line arguments to determine mode of operation
     enum {
 	mode_Test,	// Fork and send commands through a socket pair
-	mode_Client,	// Connect to c_IPCOM_SocketName
-	mode_Server,	// Listen at c_IPCOM_SocketName
-	mode_Pipe	// Connect to socket on stdin
+	mode_client,	// Connect to c_IPCOM_socket_name
+	mode_server,	// Listen at c_IPCOM_socket_name
+	mode_pipe	// Connect to socket on stdin
     } mode = mode_Test;
 
     for (int opt; 0 < (opt = getopt (argc, argv, "cspd"));) {
 	if (opt == 'c')
-	    mode = mode_Client;
+	    mode = mode_client;
 	else if (opt == 's')
-	    mode = mode_Server;
+	    mode = mode_server;
 	else if (opt == 'p')
-	    mode = mode_Pipe;
+	    mode = mode_pipe;
 	else if (opt == 'd')
 	    casycom_enable_debug_output();
 	else {
@@ -88,14 +91,14 @@ static void App_App_Init (App* app, argc_t argc, argv_t argv)
     // Both sides need to start by enabling the externs functionality:
     casycom_enable_externs();
     switch (mode) {
-	default:		App_ForkAndPipe (app);	break;
-	case mode_Client:	App_Client (app);	break;
-	case mode_Server:	App_Server (app);	break;
-	case mode_Pipe:		App_Pipe (app);		break;
+	default:		App_fork_and_pipe (app);	break;
+	case mode_client:	App_client (app);	break;
+	case mode_server:	App_server (app);	break;
+	case mode_pipe:		App_pipe (app);		break;
     }
 }
 
-static void App_ForkAndPipe (App* app)
+static void App_fork_and_pipe (App* app)
 {
     // To simplify this test program, use the same executable for both
     // client and server, forking, and communicating through a socket pair
@@ -108,35 +111,35 @@ static void App_ForkAndPipe (App* app)
     if (fr == 0) {	// Server side
 	close (socks[0]);
 	dup2 (socks[1], STDIN_FILENO);
-	App_Pipe (app);
+	App_pipe (app);
     } else {		// Client side
-	app->serverPid = fr;
+	app->server_pid = fr;
 	app->externp = casycom_create_proxy (&i_Extern, oid_App);
 	close (socks[1]);
 	// List interfaces that can be accessed from outside.
 	// On the client side, Ping is imported and no interfaces are exported.
-	PExtern_Open (&app->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
+	PExtern_open (&app->externp, socks[0], EXTERN_CLIENT, eil_Ping, NULL);
     }
 }
 
-static void App_Client (App* app)
+static void App_client (App* app)
 {
     // Clients create Extern objects connected to a specific socket
     app->externp = casycom_create_proxy (&i_Extern, oid_App);
     //
-    // ConnectUserLocal connects to the named UNIX socket in the user's runtime
-    // directory (typically /run/user/<uid>). There are also ConnectSystemLocal
+    // connect_user_local connects to the named UNIX socket in the user's runtime
+    // directory (typically /run/user/<uid>). There are also connect_system_local
     // for connecting to system services, and methods for connecting to TCP services,
-    // ConnectIP4, ConnectLocalIP4, etc. See xcom.h.
+    // connect_ip4, connect_local_ip4, etc. See xcom.h.
     //
-    if (0 > PExtern_ConnectUserLocal (&app->externp, c_IPCOM_SocketName, eil_Ping))
+    if (0 > PExtern_connect_user_local (&app->externp, c_IPCOM_socket_name, eil_Ping))
 	// Connect and Bind calls connect or bind immediately, and so can return errors here
-	casycom_error ("Extern_ConnectUserLocal: %s", strerror(errno));
+	casycom_error ("Extern_connect_user_local: %s", strerror(errno));
     // Not launching the server, so disable pid checks
-    app->serverPid = getpid();
+    app->server_pid = getpid();
 }
 
-static void App_Server (App* app)
+static void App_server (App* app)
 {
     // When writing a server, it is recommended to use the ExternServer
     // object to manage the sockets being listened to. It will create
@@ -155,17 +158,17 @@ static void App_Server (App* app)
     // to listen on more than one socket.
     //
     if (sd_listen_fds())
-	PExternServer_Open (&app->externp, SD_LISTEN_FDS_START+0, eil_Ping, true);
+	PExternServer_open (&app->externp, SD_LISTEN_FDS_START+0, eil_Ping, true);
     else {	// If no sockets were passed from systemd, create one manually
-	// Use BindUserLocal to create the socket in XDG_RUNTIME_DIR,
+	// Use bind_user_local to create the socket in XDG_RUNTIME_DIR,
 	// the standard location for sockets of user services.
-	// See other Bind variants in xsrv.h.
-	if (0 > PExternServer_BindUserLocal (&app->externp, c_IPCOM_SocketName, eil_Ping))
-	    casycom_error ("ExternServer_BindUserLocal: %s", strerror(errno));
+	// See other bind variants in xsrv.h.
+	if (0 > PExternServer_bind_user_local (&app->externp, c_IPCOM_socket_name, eil_Ping))
+	    casycom_error ("ExternServer_bind_user_local: %s", strerror(errno));
     }
 }
 
-static void App_Pipe (App* app)
+static void App_pipe (App* app)
 {
     // When a private object server is needed, it can be launched with
     // PExtern_LaunchPipe and will communicate on only one connection,
@@ -173,22 +176,22 @@ static void App_Pipe (App* app)
     // and only one Extern object is created.
     casycom_register (&f_Ping);
     app->externp = casycom_create_proxy (&i_Extern, oid_App);
-    PExtern_Open (&app->externp, STDIN_FILENO, EXTERN_SERVER, NULL, eil_Ping);
+    PExtern_open (&app->externp, STDIN_FILENO, EXTERN_SERVER, NULL, eil_Ping);
 }
 
-// When a client connects, ExternServer will forward the ExternR_Connected message
+// When a client connects, ExternServer will forward the ExternR_connected message
 // here. This is the appropriate place to check that all the imports are satisfied,
 // authenticate the connection (if using a UNIX socket), and create objects.
 //
-static void App_ExternR_Connected (App* app, const ExternInfo* einfo)
+static void App_ExternR_connected (App* app, const ExternInfo* einfo)
 {
     // Both directly connected Extern objects and ExternServer objects send this reply.
-    if (!app->serverPid)
+    if (!app->server_pid)
 	return;	// log only the client side
     // ExternInfo contains the list of interfaces available on this connection, so
     // here is the right place to check that the expected interfaces can be created.
     if (einfo->interfaces.size < 1 || einfo->interfaces.d[0] != &i_Ping) {
-	casycom_error ("connected to server that does not support the Ping interface");
+	casycom_error ("Connected to server that does not support the Ping interface");
 	return;
     }
     LOG ("Connected to server. Imported %zu interface: %s\n", einfo->interfaces.size, einfo->interfaces.d[0]->name);
@@ -205,33 +208,33 @@ static void App_ExternR_Connected (App* app, const ExternInfo* einfo)
     // (This is exactly the same as accessing a local object)
     app->pingp = casycom_create_proxy (&i_Ping, oid_App);
     // ... which can then be accessed through the proxy methods.
-    PPing_Ping (&app->pingp, 1);
+    PPing_ping (&app->pingp, 1);
 }
 
 // The ping replies are received exactly the same way as from a local
 // object. But now the object resides in the server process and the
 // message is read from the socket.
-static void App_PingR_Ping (App* app, uint32_t u)
+static void App_PingR_ping (App* app, uint32_t u)
 {
-    LOG ("Ping %u reply received in app; count %u\n", u, ++app->pingCount);
+    LOG ("Ping %u reply received in app; count %u\n", u, ++app->npings);
     casycom_quit (EXIT_SUCCESS);
 }
 
 static const DApp d_App_App = {
     .interface = &i_App,
-    DMETHOD (App, App_Init)
+    DMETHOD (App, App_init)
 };
 static const DPingR d_App_PingR = {
     .interface = &i_PingR,
-    DMETHOD (App, PingR_Ping)
+    DMETHOD (App, PingR_ping)
 };
 static const DExternR d_App_ExternR = {
     .interface = &i_ExternR,
-    DMETHOD (App, ExternR_Connected)
+    DMETHOD (App, ExternR_connected)
 };
 static const Factory f_App = {
-    .Create	= App_Create,
-    .Destroy	= App_Destroy,
+    .create	= App_create,
+    .destroy	= App_destroy,
     .dtable	= { &d_App_App, &d_App_PingR, &d_App_ExternR, NULL }
 };
 CASYCOM_MAIN (f_App)

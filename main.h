@@ -7,10 +7,10 @@
 #include "msg.h"
 
 typedef struct _Factory {
-    void*		(*Create)(const Msg* msg);
-    void		(*Destroy)(void* o);
-    void		(*ObjectDestroyed)(void* o, oid_t oid);
-    bool		(*Error)(void* o, oid_t eoid, const char* msg);
+    void*		(*create)(const Msg* msg);
+    void		(*destroy)(void* o);
+    void		(*object_destroyed)(void* o, oid_t oid);
+    bool		(*error)(void* o, oid_t eoid, const char* msg);
     const void* const	dtable[];
 } Factory;
 
@@ -43,8 +43,8 @@ void	casycom_mark_unused (const void* o) noexcept NONNULL();
 oid_t	casycom_oid_of_object (const void* o) noexcept NONNULL();
 
 #ifndef NDEBUG
-    extern bool casycom_DebugMsgTrace;
-    #define DEBUG_MSG_TRACE     casycom_DebugMsgTrace
+    extern bool casycom_debug_msg_trace;
+    #define DEBUG_MSG_TRACE     casycom_debug_msg_trace
     #define DEBUG_PRINTF(...)   do { if (DEBUG_MSG_TRACE) { fflush (stderr); printf (__VA_ARGS__); fflush (stdout); } } while (false)
 #else
     #define DEBUG_MSG_TRACE     false
@@ -62,9 +62,9 @@ static inline Proxy casycom_create_reply_proxy (iid_t iid, const Msg* msg)
 
 #ifndef NDEBUG
 static inline void casycom_enable_debug_output (void)
-    { casycom_DebugMsgTrace = true; }
+    { casycom_debug_msg_trace = true; }
 static inline void casycom_disable_debug_output (void)
-    { casycom_DebugMsgTrace = false; }
+    { casycom_debug_msg_trace = false; }
 #else
 static inline void casycom_enable_debug_output (void) {}
 static inline void casycom_disable_debug_output (void) {}
