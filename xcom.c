@@ -508,6 +508,14 @@ static bool Extern_is_valid_socket (Extern* o)
     return true;
 }
 
+#ifdef SCM_CREDS // BSD interface
+    #define SCM_CREDENTIALS	SCM_CREDS
+    #define SO_PASSCRED		LOCAL_PEERCRED
+    #define ucred		cmsgcred
+#elif !defined(SCM_CREDENTIALS)
+    #error "socket credentials passing not supported"
+#endif
+
 static void Extern_set_credentials_passing (Extern* o, int enable)
 {
     if (o->fd < 0 || !o->info.is_unix_socket)
@@ -532,7 +540,7 @@ static void Extern_TimerR_timer (Extern* o, int fd UNUSED, const Msg* msg UNUSED
 //}}}2------------------------------------------------------------------
 //{{{2 reading
 
-static DEFINE_ALIAS_CAST(ucred_alias_cast, struct ucred)
+static DEFINE_ALIAS_CAST(cred_alias_cast, ExternCredentials)
 static DEFINE_ALIAS_CAST(int_alias_cast, int)
 
 static void Extern_reading (Extern* o)
@@ -583,7 +591,7 @@ static void Extern_reading (Extern* o)
 	// Check if ancillary data was passed
 	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
 	    if (cmsg->cmsg_type == SCM_CREDENTIALS) {
-		o->info.creds = *ucred_alias_cast (CMSG_DATA(cmsg));
+		o->info.creds = *cred_alias_cast (CMSG_DATA(cmsg));
 		Extern_set_credentials_passing (o, false);	// Checked when the socket is connected. Changing credentials (such as by passing the socket to another process) is not supported.
 		DEBUG_PRINTF ("[X] Received credentials: pid=%u,uid=%u,gid=%u\n", o->info.creds.pid, o->info.creds.uid, o->info.creds.gid);
 	    } else if (cmsg->cmsg_type == SCM_RIGHTS) {

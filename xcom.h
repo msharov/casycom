@@ -108,9 +108,19 @@ static inline int PExtern_connect_local_ip6 (const Proxy* pp, in_port_t port, co
 //{{{ ExternInfo
 
 DECLARE_VECTOR_TYPE (InterfaceVector, Interface*);
+
+typedef struct _ExternCredentials {
+    pid_t	pid;
+    uid_t	uid;
+    #ifdef SCM_CREDS
+	uid_t	euid; // BSD-only field, do not use
+    #endif
+    gid_t	gid;
+} ExternCredentials;
+
 typedef struct _ExternInfo {
     InterfaceVector	interfaces;
-    struct ucred	creds;
+    ExternCredentials	creds;
     oid_t		oid;
     bool		is_client;
     bool		is_unix_socket;
