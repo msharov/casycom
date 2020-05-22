@@ -20,4 +20,4 @@ Building requires a c11-supporting compiler, such as gcc 4.6+:
 ./configure && make check && make install
 ```
 
-Read documentation and tutorials in [docs/](docs/index.html)
+Read documentation and tutorials in [docs/](http://msharov.github.io/casycom)

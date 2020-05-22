@@ -71,7 +71,7 @@ static void PCOM_dispatch (const DCOM* dtable, void* o, Msg* msg);
 static const Interface i_COM = {
     .name = "COM",
     .dispatch = PCOM_dispatch,
-    .method = { "Error\0s", "Export\0s", "Delete\0", NULL }
+    .method = { "error\0s", "export\0s", "delete\0", NULL }
 };
 
 static void PCOM_dispatch (const DCOM* dtable, void* o, Msg* msg)
