@@ -1,6 +1,4 @@
-	+======================+
-	|       CAsyCOM        |
-	+======================+
+# CAsyCOM
 
 A Component Object Model defines a framework for creating objects and
 calling their methods independently of object location. This allows
@@ -16,5 +14,10 @@ transparent access to out-of-process objects. It is very lightweight,
 a static library compiled to only 20k, and at only 3k lines of code,
 it is easy to fully review and understand.
 
-Build with ./configure && make check && make install
-Read documentation and tutorials in docs/
+Building requires a c11-supporting compiler, such as gcc 4.6+:
+
+```sh
+./configure && make check && make install
+```
+
+Read documentation and tutorials in [docs/](docs/index.html)

@@ -5,7 +5,7 @@
 
 #include "util.h"
 #include <stdarg.h>
-#if HAVE_EXECINFO_H
+#if __has_include(<execinfo.h>)
     #include <execinfo.h>
 #endif
 
@@ -46,7 +46,7 @@ void casycom_log (int type, const char* fmt, ...)
 
 void casycom_backtrace (void)
 {
-#if HAVE_EXECINFO_H
+#if __has_include(<execinfo.h>)
     void* frames [64];
     int nFrames = backtrace (ARRAY_BLOCK(frames));
     if (nFrames <= 1)

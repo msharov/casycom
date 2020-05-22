@@ -1,43 +1,34 @@
-################ Build options #######################################
-
-NAME		:= @PKG_NAME@
-MAJOR		:= @PKG_MAJOR@
-MINOR		:= @PKG_MINOR@
-
-#DEBUG		:= 1
+name		:= @pkg_name@
 
 ################ Programs ############################################
 
 CC		:= @CC@
-LD		:= @CC@
 AR		:= @AR@
 RANLIB		:= @RANLIB@
 INSTALL		:= @INSTALL@
-
-INSTALLEXE	:= ${INSTALL} -D -p -m 700 -s
-INSTALLDATA	:= ${INSTALL} -D -p -m 644
-INSTALLLIB	:= ${INSTALLDATA}
-RMPATH		:= rmdir -p --ignore-fail-on-non-empty
+INSTALL_DATA	:= ${INSTALL} -m 644
 
 ################ Destination #########################################
 
-BINDIR		:= @bindir@
-INCDIR		:= @includedir@
-LIBDIR		:= @libdir@
-DOCDIR		:= @docdir@
-#PKGCONFIGDIR	:= @pkgconfigdir@
+prefix		:= @prefix@
+datadir		:= @datadir@
+includedir	:= @includedir@
+libdir		:= @libdir@
+docdir		:= @docdir@
+pkgconfigdir	:= @pkgconfigdir@
+TMPDIR		:= @TMPDIR@
+builddir	:= @builddir@/${name}
+O		:= .o/
 
 ################ Compiler options ####################################
 
-WARNOPTS	:= -Wall -Wextra -Wredundant-decls -Wshadow
-CFLAGS		:= ${WARNOPTS} -std=c11 \
-		-ffunction-sections -fdata-sections
-ifdef DEBUG
-    CFLAGS	+= -O0 -ggdb3
-    LDFLAGS	+= -g -rdynamic
+#debug		:= 1
+ifdef debug
+    cflags	:= -O0 -ggdb3
+    ldflags	:= -g -rdynamic ${LDFLAGS}
 else
-    CFLAGS	+= -Os -g0 -DNDEBUG=1
-    LDFLAGS	+= -s -Wl,-O1,-gc-sections
+    cflags	:= -Os -g0 -DNDEBUG=1
+    ldflags	:= -s -Wl,-O1,-gc-sections ${LDFLAGS}
 endif
-BUILDDIR	:= @builddir@/${NAME}
-O		:= .o/
+CFLAGS		:= -Wall -Wextra -Wredundant-decls -Wshadow
+cflags		+= -std=c11 -ffunction-sections -fdata-sections ${CFLAGS}
